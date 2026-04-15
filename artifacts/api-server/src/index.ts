@@ -18,7 +18,7 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-async function runMigrations() {
+function runMigrations() {
   if (!process.env["DATABASE_URL"]) {
     logger.warn("DATABASE_URL not set — skipping schema sync");
     return;
@@ -35,16 +35,16 @@ async function runMigrations() {
     execSync("pnpm --filter @workspace/db run push-force", {
       stdio: "inherit",
       cwd: workspaceRoot,
-      timeout: 60_000, // 60s max
+      timeout: 60_000,
     });
     logger.info("Database schema synced successfully");
   } catch (err) {
-    logger.error({ err }, "Database schema sync failed — server will start anyway");
+    logger.error({ err }, "Database schema sync failed — continuing anyway");
   }
 }
 
-await runMigrations();
-
+// Start server immediately so health checks respond right away,
+// then run migrations in the background.
 app.listen(port, "0.0.0.0", (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
@@ -52,4 +52,7 @@ app.listen(port, "0.0.0.0", (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  // Migrations run after the server is ready — non-blocking for health checks.
+  setImmediate(() => runMigrations());
 });
