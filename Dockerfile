@@ -4,7 +4,7 @@ WORKDIR /app
 
 # ── Install dependencies ──────────────────────────────────────
 FROM base AS deps
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
 COPY lib/api-spec/package.json           lib/api-spec/
 COPY lib/api-client-react/package.json   lib/api-client-react/
 COPY lib/api-zod/package.json            lib/api-zod/
@@ -12,7 +12,10 @@ COPY lib/db/package.json                 lib/db/
 COPY artifacts/paname-rush/package.json  artifacts/paname-rush/
 COPY artifacts/api-server/package.json   artifacts/api-server/
 COPY artifacts/mockup-sandbox/package.json artifacts/mockup-sandbox/
-RUN pnpm install --frozen-lockfile
+# Support both glibc and musl so Vite/Rollup native binaries work on any
+# build runner (Railway may report musl even on Debian-based images)
+RUN printf '\nsupportedArchitectures[libc][]=glibc\nsupportedArchitectures[libc][]=musl\n' >> .npmrc && \
+    pnpm install
 
 # ── Build ─────────────────────────────────────────────────────
 FROM deps AS builder
