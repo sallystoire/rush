@@ -3,20 +3,29 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Paname Rush game API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: players
+    description: Player operations
+  - name: teams
+    description: Team operations
+  - name: leaderboard
+    description: Leaderboard operations
+  - name: codes
+    description: Boost code operations
+  - name: game
+    description: Game session operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +33,357 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /players:
+    post:
+      operationId: createPlayer
+      tags: [players]
+      summary: Create or get a player
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlayerBody"
+      responses:
+        "200":
+          description: Player created or retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+
+  /players/{playerId}:
+    get:
+      operationId: getPlayer
+      tags: [players]
+      summary: Get player by ID
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Player found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+
+  /players/{playerId}/progress:
+    put:
+      operationId: updatePlayerProgress
+      tags: [players]
+      summary: Update player level and best time
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProgressBody"
+      responses:
+        "200":
+          description: Progress updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+
+  /teams:
+    get:
+      operationId: listTeams
+      tags: [teams]
+      summary: List all teams
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [level, members]
+            default: level
+      responses:
+        "200":
+          description: Teams list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TeamWithMembers"
+    post:
+      operationId: createTeam
+      tags: [teams]
+      summary: Create a new team
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTeamBody"
+      responses:
+        "200":
+          description: Team created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamWithMembers"
+
+  /teams/{teamId}:
+    get:
+      operationId: getTeam
+      tags: [teams]
+      summary: Get team details
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Team details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamWithMembers"
+    put:
+      operationId: updateTeam
+      tags: [teams]
+      summary: Update team settings
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTeamBody"
+      responses:
+        "200":
+          description: Team updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamWithMembers"
+
+  /teams/{teamId}/join:
+    post:
+      operationId: joinTeam
+      tags: [teams]
+      summary: Join a team
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinTeamBody"
+      responses:
+        "200":
+          description: Joined team
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamWithMembers"
+
+  /teams/{teamId}/leave:
+    post:
+      operationId: leaveTeam
+      tags: [teams]
+      summary: Leave a team
+      parameters:
+        - name: teamId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeaveTeamBody"
+      responses:
+        "200":
+          description: Left team
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                required:
+                  - success
+
+  /leaderboard/individual:
+    get:
+      operationId: getIndividualLeaderboard
+      tags: [leaderboard]
+      summary: Get top 50 individual players
+      parameters:
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [level, time]
+            default: level
+      responses:
+        "200":
+          description: Individual leaderboard
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeaderboardEntry"
+
+  /leaderboard/teams:
+    get:
+      operationId: getTeamLeaderboard
+      tags: [leaderboard]
+      summary: Get top 50 teams
+      parameters:
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [level, time]
+            default: level
+      responses:
+        "200":
+          description: Team leaderboard
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TeamLeaderboardEntry"
+
+  /codes/redeem:
+    post:
+      operationId: redeemCode
+      tags: [codes]
+      summary: Redeem a boost code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RedeemCodeBody"
+      responses:
+        "200":
+          description: Code redeemed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RedeemCodeResponse"
+
+  /codes:
+    post:
+      operationId: createCode
+      tags: [codes]
+      summary: Create a boost code (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCodeBody"
+      responses:
+        "200":
+          description: Code created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BoostCode"
+
+  /game/start:
+    post:
+      operationId: startGame
+      tags: [game]
+      summary: Start a game session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartGameBody"
+      responses:
+        "200":
+          description: Game started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameSession"
+
+  /game/{sessionId}/complete:
+    post:
+      operationId: completeLevel
+      tags: [game]
+      summary: Complete a level in a game session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompleteLevelBody"
+      responses:
+        "200":
+          description: Level completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameSession"
+
+  /players/{playerId}/boosts:
+    get:
+      operationId: getPlayerBoosts
+      tags: [players]
+      summary: Get player active boosts
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Player boosts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlayerBoost"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +394,302 @@ components:
       required:
         - status
 
+    CreatePlayerBody:
+      type: object
+      properties:
+        username:
+          type: string
+        avatarUrl:
+          type: string
+        color:
+          type: string
+      required:
+        - username
+
+    Player:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        avatarUrl:
+          type: string
+        color:
+          type: string
+        level:
+          type: integer
+        bestTime:
+          type: number
+        teamId:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+      required:
+        - id
+        - username
+        - color
+        - level
+        - createdAt
+
+    UpdateProgressBody:
+      type: object
+      properties:
+        level:
+          type: integer
+        bestTime:
+          type: number
+      required:
+        - level
+
+    CreateTeamBody:
+      type: object
+      properties:
+        name:
+          type: string
+        captainId:
+          type: integer
+        maxMembers:
+          type: integer
+          default: 4
+        minLevelRequired:
+          type: integer
+          default: 1
+      required:
+        - name
+        - captainId
+
+    UpdateTeamBody:
+      type: object
+      properties:
+        maxMembers:
+          type: integer
+        minLevelRequired:
+          type: integer
+
+    TeamWithMembers:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        captainId:
+          type: integer
+        maxMembers:
+          type: integer
+        minLevelRequired:
+          type: integer
+        level:
+          type: integer
+        bestTime:
+          type: number
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/Player"
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - captainId
+        - maxMembers
+        - minLevelRequired
+        - level
+        - members
+        - createdAt
+
+    JoinTeamBody:
+      type: object
+      properties:
+        playerId:
+          type: integer
+      required:
+        - playerId
+
+    LeaveTeamBody:
+      type: object
+      properties:
+        playerId:
+          type: integer
+      required:
+        - playerId
+
+    LeaderboardEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+        playerId:
+          type: integer
+        username:
+          type: string
+        level:
+          type: integer
+        bestTime:
+          type: number
+        color:
+          type: string
+      required:
+        - rank
+        - playerId
+        - username
+        - level
+        - color
+
+    TeamLeaderboardEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+        teamId:
+          type: integer
+        teamName:
+          type: string
+        level:
+          type: integer
+        bestTime:
+          type: number
+        memberCount:
+          type: integer
+      required:
+        - rank
+        - teamId
+        - teamName
+        - level
+        - memberCount
+
+    CreateCodeBody:
+      type: object
+      properties:
+        code:
+          type: string
+        boostType:
+          type: string
+          enum: [skip_parcours, skip_level]
+        value:
+          type: integer
+          default: 1
+      required:
+        - code
+        - boostType
+
+    RedeemCodeBody:
+      type: object
+      properties:
+        playerId:
+          type: integer
+        code:
+          type: string
+      required:
+        - playerId
+        - code
+
+    RedeemCodeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        boost:
+          $ref: "#/components/schemas/PlayerBoost"
+      required:
+        - success
+        - message
+
+    BoostCode:
+      type: object
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        boostType:
+          type: string
+        value:
+          type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - code
+        - boostType
+        - value
+        - createdAt
+
+    PlayerBoost:
+      type: object
+      properties:
+        id:
+          type: integer
+        playerId:
+          type: integer
+        boostType:
+          type: string
+        value:
+          type: integer
+        used:
+          type: boolean
+        codeId:
+          type: integer
+      required:
+        - id
+        - playerId
+        - boostType
+        - value
+        - used
+        - codeId
+
+    StartGameBody:
+      type: object
+      properties:
+        playerId:
+          type: integer
+        mode:
+          type: string
+          enum: [solo, team]
+        teamId:
+          type: integer
+      required:
+        - playerId
+        - mode
+
+    CompleteLevelBody:
+      type: object
+      properties:
+        level:
+          type: integer
+        time:
+          type: number
+      required:
+        - level
+        - time
+
+    GameSession:
+      type: object
+      properties:
+        id:
+          type: integer
+        playerId:
+          type: integer
+        mode:
+          type: string
+        teamId:
+          type: integer
+          nullable: true
+        currentLevel:
+          type: integer
+        startedAt:
+          type: string
+        status:
+          type: string
+      required:
+        - id
+        - playerId
+        - mode
+        - currentLevel
+        - startedAt
+        - status

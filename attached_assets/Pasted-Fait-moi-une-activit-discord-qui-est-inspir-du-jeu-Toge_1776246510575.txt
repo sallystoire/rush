@@ -1,0 +1,49 @@
+Fait moi une activité discord, qui est inspiré du jeu Together sur Roblox et Chained Together, en gros ta plusieurs niveaux de parcours et en équipe attaché ils doivent parcourir sans tomber. C'est en 2D et les bonhomme sont de couleurs individuel pour chaque joueur. 
+
+En gros lorsqu'ils lancent le jeu ils ont tout d'abord le menu avec le bouton jouer quand tu clique le jeu commence, le titre de l'activité: Paname Rush, bouton crédit et quand tu clique ta une fenêtre: Crée et conçu par Sally alias sallystoire pour le serveur discord.gg/paname avec amour !,
+
+Après avoir cliqué sur jouer:
+Fenêtre du jeu "Mode de jeu"
+(Inspire toi de l'image 1)
+Genre à gauche ta 
+- retour
+- créer une team
+- partie rapide 
+- classement
+- code 
+
+À droite ta 
+-  barre de recherche: chercher une team et en dessous une file pour scrol et les team sont affiché du plus haut dans le top au plus bas. Avec le nombres de membres
+
+quand on clique dans classement faut qu’on ait: 
+Top individuel (niveau, rapidité) et top team (niveau, rapidité)
+
+Retour pour aller dans le menu
+
+Code: avec une commande /code name value skip parcours ou skip niveau et en gros je peux créer un code réserve que aux gens qui sont rôle perm admin. Et les joueur quand ils rentre ce code ils pourront l’utiliser le boost qu’une fois. 
+
+créer une team si t'es niveau 4 tu peux créer une team sinon ça t'affiche un message "tu dois être de niveau 4 pour débloquer"
+
+Si t'es niveau 4 et + tu cliques et ta une fenêtre tu choisi le nom de la team faut pas qu'elle soit prise, et tu peux régler à tout moment les niveaux requis pour rejoindre: accepte tout les niveaux ou que a partir d’un certain niveau et tu peux choisir, et choisir le nombre maximum que tu veux de gens dans la team, après tu fais valider ensuite il voit en haut le nom de sa team et ensuite il y a du coup membres: et lui et les autres dans qui vont rejoindre 
+
+Ensuite si t’es déjà dans une team à gauche t’aura un bouton ma team et tu vois ta team et aussi c’est affiché via classement du plus haut en niveau au moins et le capitaine est affiché en couleur or
+
+Et faut que les teams puissent jouer ensemble, ils vont dans ma team et jouer et ils attendent que qlq fait de même et il y a un compteur et après ça se lance automatiquement. 
+
+Les niveaux: 
+Niveau 1 = 1 parcours
+Niveau deux = 1 parcours
+Niveau 3 = 2 parcours
+Niveau 4 = 2 parcours
+Etc … = 2 parcours 
+Niveau 100 = 4 parcours 
+
+Et faut augmenter la difficulté des niveaux et des fois faire niveau simple, médium et dur et alterner juste niveau 1. À 4 niveau facile et à partir de 5 médium un peu de simple dans les niveau 30 60 et un peu de difficile aussi et niveau 100 3 parcours difficiles et le dernier simple
+
+Pour quand tu joue ta la map le bonhomme avec une couleur en haut ton avatar avec un encadré qui correspond à la couleur de ton bonhomme et ton niveau aussi et un chronomètre tu dois faire le parcours et si tu tombe sur le rouge ou sur la lave tu meurt et tu recommence le parcours mais pas le niveau entier. Sauf quand t’es à partir de niveau 90 jusqu’à 100. Si ta une boost ta un bouton et quand tu clique tu peux utiliser
+
+Pour partie rapide c’est en mode individuel 
+Pour partie team, les joueurs sont liés entre eux si un touche le rouge tout le monde recommence le parcours. Et pareil y a aussi en haut les joueurs, couleurs, niveaux, chronomètre.
+
+Ensuite quand tu clique dans classement il y a deux catégories le top 50 individuel niveau et son meilleur score en rapidité et top team niveau et meilleur score en rapidité
+
