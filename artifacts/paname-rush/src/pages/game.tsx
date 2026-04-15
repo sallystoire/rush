@@ -15,6 +15,60 @@ import {
   useUpdatePlayerProgress
 } from "@workspace/api-client-react";
 
+function drawCharacter(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number,
+  w: number, h: number,
+  color: string,
+  facingRight: boolean
+) {
+  // T-shaped blocky character inspired by "Chained Together"
+  // Bounding box: w x h (default 30x32)
+  const px = Math.round(x);
+  const py = Math.round(y);
+
+  // ── Proportions ──────────────────────────────────────────
+  const headW = Math.round(w * 0.44);   // ~13px
+  const headH = Math.round(h * 0.34);   // ~11px
+  const torsoW = w;                      // full width
+  const torsoH = Math.round(h * 0.28);  // ~9px
+  const bodyW  = Math.round(w * 0.40);  // ~12px
+  const bodyH  = h - headH - torsoH;    // remaining
+
+  // Head position: top-right if facing right, top-left otherwise
+  const headX = facingRight ? px + w - headW : px;
+  const headY = py;
+
+  // Torso (shoulders/arms): below head, full width
+  const torsoY = py + headH;
+
+  // Body/legs: centered below torso
+  const bodyX = px + Math.round((w - bodyW) / 2);
+  const bodyY = torsoY + torsoH;
+
+  // ── Draw body ───────────────────────────────────────────
+  ctx.fillStyle = color;
+  // Head
+  ctx.fillRect(headX, headY, headW, headH);
+  // Torso
+  ctx.fillRect(px, torsoY, torsoW, torsoH);
+  // Body / legs
+  ctx.fillRect(bodyX, bodyY, bodyW, bodyH);
+
+  // ── Dark eye ─────────────────────────────────────────────
+  ctx.fillStyle = "#1a1a1a";
+  const eyeSize = Math.max(3, Math.round(headW * 0.32));
+  const eyeX = facingRight
+    ? headX + headW - eyeSize - 2
+    : headX + 2;
+  const eyeY = headY + 2;
+  ctx.fillRect(eyeX, eyeY, eyeSize, eyeSize);
+
+  // ── Pixel highlight (top-left of head) ───────────────────
+  ctx.fillStyle = "rgba(255,255,255,0.25)";
+  ctx.fillRect(facingRight ? headX + 1 : headX + headW - 3, headY + 1, 2, 2);
+}
+
 export default function Game() {
   const [, setLocation] = useLocation();
   const searchString = useSearch();
@@ -258,17 +312,7 @@ export default function Game() {
 
     // Draw player
     if (state.status !== "dead") {
-      ctx.fillStyle = state.player.color;
-      ctx.fillRect(state.player.x, state.player.y, state.player.w, state.player.h);
-      // Face
-      ctx.fillStyle = "#fff";
-      if (state.player.vx >= 0) {
-        ctx.fillRect(state.player.x + 20, state.player.y + 5, 5, 5); // eye
-        ctx.fillRect(state.player.x + 20, state.player.y + 20, 5, 2); // mouth
-      } else {
-        ctx.fillRect(state.player.x + 5, state.player.y + 5, 5, 5); // eye
-        ctx.fillRect(state.player.x + 5, state.player.y + 20, 5, 2); // mouth
-      }
+      drawCharacter(ctx, state.player.x, state.player.y, state.player.w, state.player.h, state.player.color, state.player.vx >= 0);
     } else {
       // Death particles
       ctx.fillStyle = state.player.color;

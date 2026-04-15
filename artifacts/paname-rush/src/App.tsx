@@ -7,6 +7,7 @@ import Home from "@/pages/home";
 import GameMode from "@/pages/game-mode";
 import Leaderboard from "@/pages/leaderboard";
 import Game from "@/pages/game";
+import { DiscordProvider, useDiscord } from "@/hooks/use-discord";
 
 const queryClient = new QueryClient();
 
@@ -22,13 +23,34 @@ function Router() {
   );
 }
 
+function AppContent() {
+  const { ready } = useDiscord();
+
+  if (!ready) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-4xl font-bold text-white pixel-text mb-4">PANAME RUSH</div>
+          <div className="text-muted-foreground pixel-text animate-pulse">Connexion Discord...</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+      <Router />
+    </WouterRouter>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
+        <DiscordProvider>
+          <AppContent />
+        </DiscordProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
