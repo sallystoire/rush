@@ -24,24 +24,35 @@ ENV BASE_PATH=/ \
 RUN pnpm run build:railway
 
 # ── Production image ──────────────────────────────────────────
-FROM node:22-slim AS runner
-RUN corepack enable && corepack prepare pnpm@latest --activate
+FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Full workspace needed : migrations pnpm CLI + static schema push
+# Workspace manifests (needed for pnpm CLI + drizzle migrations)
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
-COPY lib/ ./lib/
+COPY lib/api-spec/package.json           lib/api-spec/
+COPY lib/api-client-react/package.json   lib/api-client-react/
+COPY lib/api-zod/package.json            lib/api-zod/
+COPY lib/db/package.json                 lib/db/
 COPY artifacts/api-server/package.json   artifacts/api-server/
 COPY artifacts/paname-rush/package.json  artifacts/paname-rush/
 COPY artifacts/mockup-sandbox/package.json artifacts/mockup-sandbox/
-# Install only non-dev deps at runtime
-RUN pnpm install --frozen-lockfile
 
-# Server bundle (esbuild — auto-contenu)
-COPY --from=builder /app/artifacts/api-server/dist        ./artifacts/api-server/dist
-# Frontend static files servis par Express
-COPY --from=builder /app/artifacts/paname-rush/dist/public ./artifacts/paname-rush/dist/public
+# Copy lib sources (needed for drizzle config at runtime)
+COPY lib/db/                             lib/db/
+COPY lib/api-zod/                        lib/api-zod/
+COPY lib/api-spec/                       lib/api-spec/
+
+# Reuse node_modules from deps — no second download
+COPY --from=deps /app/node_modules                              ./node_modules
+COPY --from=deps /app/lib/db/node_modules                       ./lib/db/node_modules
+COPY --from=deps /app/lib/api-zod/node_modules                  ./lib/api-zod/node_modules
+COPY --from=deps /app/artifacts/api-server/node_modules         ./artifacts/api-server/node_modules
+
+# Server bundle (esbuild — self-contained)
+COPY --from=builder /app/artifacts/api-server/dist              ./artifacts/api-server/dist
+# Frontend static files served by Express
+COPY --from=builder /app/artifacts/paname-rush/dist/public      ./artifacts/paname-rush/dist/public
 
 EXPOSE 8080
 CMD ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
