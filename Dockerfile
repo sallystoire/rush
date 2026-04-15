@@ -1,4 +1,4 @@
-FROM node:22-alpine AS base
+FROM node:22-slim AS base
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
@@ -24,7 +24,9 @@ ENV BASE_PATH=/ \
 RUN pnpm run build:railway
 
 # ── Production image ──────────────────────────────────────────
-FROM base AS runner
+FROM node:22-slim AS runner
+RUN corepack enable && corepack prepare pnpm@latest --activate
+WORKDIR /app
 ENV NODE_ENV=production
 
 # Full workspace needed : migrations pnpm CLI + static schema push
