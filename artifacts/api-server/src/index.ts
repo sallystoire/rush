@@ -31,17 +31,21 @@ async function runMigrations() {
     "../../../..",
   );
 
-  execSync("pnpm --filter @workspace/db run push-force", {
-    stdio: "inherit",
-    cwd: workspaceRoot,
-  });
-
-  logger.info("Database schema synced successfully");
+  try {
+    execSync("pnpm --filter @workspace/db run push-force", {
+      stdio: "inherit",
+      cwd: workspaceRoot,
+      timeout: 60_000, // 60s max
+    });
+    logger.info("Database schema synced successfully");
+  } catch (err) {
+    logger.error({ err }, "Database schema sync failed — server will start anyway");
+  }
 }
 
 await runMigrations();
 
-app.listen(port, (err) => {
+app.listen(port, "0.0.0.0", (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
