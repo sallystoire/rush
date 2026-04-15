@@ -29,17 +29,64 @@ app.use(
     },
   }),
 );
-app.use(cors());
+
+const isProduction = process.env["NODE_ENV"] === "production";
+
+const DISCORD_HOSTNAMES = new Set([
+  "discord.com",
+  "discordapp.com",
+  "discordsays.com",
+]);
+
+const DISCORD_SUFFIXES = [
+  ".discord.com",
+  ".discordapp.com",
+  ".discordsays.com",
+];
+
+function isAllowedOrigin(origin: string): boolean {
+  let hostname: string;
+  try {
+    hostname = new URL(origin).hostname;
+  } catch {
+    return false;
+  }
+
+  if (DISCORD_HOSTNAMES.has(hostname)) return true;
+  if (DISCORD_SUFFIXES.some((suffix) => hostname.endsWith(suffix))) return true;
+
+  const appUrl = process.env["APP_URL"];
+  if (appUrl) {
+    try {
+      return hostname === new URL(appUrl).hostname;
+    } catch {
+      return false;
+    }
+  }
+
+  return hostname.endsWith(".railway.app");
+}
+
+const corsOrigin: cors.CorsOptions["origin"] = isProduction
+  ? (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      const allowed = isAllowedOrigin(origin);
+      callback(allowed ? null : new Error("CORS: origin not allowed"), allowed);
+    }
+  : true;
+
+app.use(cors({ origin: corsOrigin }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
 
-// Serve frontend static files in production
-if (process.env["NODE_ENV"] === "production") {
+if (isProduction) {
   const frontendPath = path.resolve(__dirname, "../../paname-rush/dist/public");
   app.use(express.static(frontendPath));
-  // SPA fallback — all non-/api routes serve index.html
   app.get("*", (_req, res) => {
     res.sendFile(path.join(frontendPath, "index.html"));
   });
