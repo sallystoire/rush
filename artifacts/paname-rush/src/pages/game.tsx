@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  generateLevel, getTotalParcours, getLevelName,
+  generateLevel, getTotalParcours, getLevelName, isLaserActive,
   checkCollision, GRAVITY, JUMP_FORCE, MOVE_SPEED, MAX_FALL_SPEED,
   type GameState, type Rect, type Platform, type Decoration, type LevelTheme
 } from "@/lib/game-engine";
@@ -572,6 +572,7 @@ export default function Game() {
       platforms: gen.platforms,
       trains: gen.trains.map(t => ({ ...t })),
       croustys: gen.croustys.map(c => ({ ...c })),
+      lasers: gen.lasers.map(l => ({ ...l })),
       decorations: gen.decorations,
       worldEnd: gen.worldEnd,
       theme: gen.theme,
@@ -689,6 +690,16 @@ export default function Game() {
       // Collision (deadly always — you cannot stand on a flying plate)
       const cRect: Rect = { x: c.x + 6, y: c.y + 6, w: c.w - 12, h: c.h - 12 };
       if (checkCollision({ x: p.x, y: p.y, w: p.w, h: p.h }, cRect)) {
+        dieRef.current();
+        return;
+      }
+    }
+
+    // ── Lasers: deadly when active ───────────────────────────
+    for (const l of state.lasers) {
+      if (!isLaserActive(l, state.time)) continue;
+      const lRect: Rect = { x: l.x, y: l.y, w: l.w, h: l.h };
+      if (checkCollision({ x: p.x, y: p.y, w: p.w, h: p.h }, lRect)) {
         dieRef.current();
         return;
       }
@@ -828,6 +839,42 @@ export default function Game() {
       drawTrain(ctx, tr.x, tr.y, tr.w, tr.h, tr.color, tr.vx >= 0);
     }
 
+    // ── Lasers ──────────────────────────────────────────────
+    for (const l of state.lasers) {
+      const active = isLaserActive(l, state.time);
+      // Emitter caps (always visible at both ends)
+      ctx.fillStyle = "#1f2937";
+      if (l.orientation === "vertical") {
+        ctx.fillRect(l.x - 4, l.y - 8, l.w + 8, 8);
+        ctx.fillRect(l.x - 4, l.y + l.h, l.w + 8, 8);
+      } else {
+        ctx.fillRect(l.x - 8, l.y - 4, 8, l.h + 8);
+        ctx.fillRect(l.x + l.w, l.y - 4, 8, l.h + 8);
+      }
+      if (active) {
+        ctx.save();
+        ctx.shadowColor = "rgba(255, 0, 80, 0.85)";
+        ctx.shadowBlur = 20;
+        const grad =
+          l.orientation === "vertical"
+            ? ctx.createLinearGradient(l.x, 0, l.x + l.w, 0)
+            : ctx.createLinearGradient(0, l.y, 0, l.y + l.h);
+        grad.addColorStop(0, "rgba(255,80,120,0.8)");
+        grad.addColorStop(0.5, "#ffffff");
+        grad.addColorStop(1, "rgba(255,80,120,0.8)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(l.x, l.y, l.w, l.h);
+        ctx.restore();
+      } else {
+        // Faint guide line so the player learns the pattern
+        ctx.save();
+        ctx.globalAlpha = 0.15;
+        ctx.fillStyle = "#ff5577";
+        ctx.fillRect(l.x, l.y, l.w, l.h);
+        ctx.restore();
+      }
+    }
+
     // ── Croustys (food obstacles) ───────────────────────────
     const croustyImg = croustyImgRef.current;
     for (const c of state.croustys) {
@@ -888,172 +935,154 @@ export default function Game() {
   }, [loop]);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col font-sans">
+    <div className="h-[100dvh] w-full bg-background flex flex-col font-sans overflow-hidden">
       {/* HUD Header */}
-      <div className="h-16 border-b-4 border-border bg-card flex items-center justify-between px-6 shrink-0 z-10">
+      <div className="h-12 md:h-14 border-b-2 border-border bg-card flex items-center justify-between px-2 md:px-4 shrink-0 z-10 graffiti-text">
         <Link href="/game-mode">
-          <Button variant="ghost" size="icon" className="hover:bg-muted text-muted-foreground hover:text-white">
-            <ArrowLeft className="h-6 w-6" />
+          <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-muted text-muted-foreground hover:text-white">
+            <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
 
-        <div className="flex items-center gap-8 pixel-text">
-          <div className="flex items-center gap-3">
-            <div className="text-muted-foreground text-sm">NIVEAU {uiState.level}</div>
-            <div className="text-xl md:text-2xl text-primary drop-shadow-[0_0_5px_rgba(255,0,85,0.5)] truncate max-w-[160px]">
-              {getLevelName(uiState.level)}
-            </div>
+        <div className="flex items-center gap-2 md:gap-5 text-sm md:text-base flex-1 justify-center min-w-0">
+          <div className="flex items-baseline gap-1.5 min-w-0">
+            <span className="text-muted-foreground text-xs md:text-sm hidden sm:inline">NIV.</span>
+            <span className="text-base md:text-xl text-primary drop-shadow-[0_0_5px_rgba(255,0,85,0.6)] truncate max-w-[110px] md:max-w-[180px]">
+              {uiState.level} · {getLevelName(uiState.level)}
+            </span>
           </div>
-          
-          <div className="h-8 w-px bg-border hidden md:block"></div>
-          
-          <div className="flex items-center gap-3">
-            <div className="text-muted-foreground text-sm">PARCOURS</div>
-            <div className="text-2xl text-secondary drop-shadow-[0_0_5px_rgba(0,240,255,0.5)]">
+
+          <div className="h-5 w-px bg-border hidden sm:block"></div>
+
+          <div className="hidden sm:flex items-baseline gap-1.5">
+            <span className="text-muted-foreground text-xs md:text-sm">PARC.</span>
+            <span className="text-base md:text-xl text-secondary drop-shadow-[0_0_5px_rgba(0,240,255,0.6)]">
               {uiState.parcours}/{uiState.totalParcours}
-            </div>
+            </span>
           </div>
-          
-          <div className="h-8 w-px bg-border hidden md:block"></div>
-          
-          <div className="flex items-center gap-3 font-mono font-bold text-2xl text-accent drop-shadow-[0_0_5px_rgba(250,204,21,0.5)]">
+
+          <div className="h-5 w-px bg-border hidden sm:block"></div>
+
+          <div className="text-base md:text-xl text-accent drop-shadow-[0_0_5px_rgba(250,204,21,0.6)] tabular-nums">
             {uiState.time.toFixed(1)}s
           </div>
 
-          <div className="h-8 w-px bg-border hidden md:block"></div>
+          <div className="h-5 w-px bg-border"></div>
 
-          <div className="flex items-center gap-2">
-            <div className="text-muted-foreground text-sm">TENTATIVES</div>
-            <div className="text-2xl font-mono font-bold text-destructive drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-muted-foreground text-xs md:text-sm">TRY</span>
+            <span className="text-base md:text-xl text-destructive drop-shadow-[0_0_5px_rgba(239,68,68,0.6)] tabular-nums">
               {uiState.attempts}
-            </div>
+            </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {player && (
             <>
-              <div className="font-bold pixel-text text-sm hidden md:block">{player.username}</div>
-              <div className="w-8 h-8 pixel-border" style={{ backgroundColor: player.color }}></div>
+              <span className="graffiti-text text-sm hidden lg:block">{player.username}</span>
+              <div className="w-7 h-7 pixel-border" style={{ backgroundColor: player.color }}></div>
             </>
           )}
         </div>
       </div>
 
-      {/* Game Area */}
-      <div className="flex-1 relative flex items-center justify-center p-4">
-        <div className="relative border-4 border-border shadow-[0_0_30px_rgba(0,0,0,0.5)] overflow-hidden w-full max-w-[1000px] aspect-video">
-          
-          {uiState.status === "loading" && (
-            <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-20">
-              <div className="pixel-text text-2xl text-white animate-pulse">CHARGEMENT...</div>
-            </div>
-          )}
-          
-          {uiState.status === "dead" && (
-            <div className="absolute inset-0 bg-destructive/20 flex flex-col items-center justify-center z-20">
-              <div className="pixel-text text-4xl text-destructive drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]">MORT !</div>
-              <div className="pixel-text text-white mt-4">Redemarrage...</div>
-            </div>
-          )}
-          
-          {uiState.status === "won_parcours" && (
-            <div className="absolute inset-0 bg-secondary/20 flex flex-col items-center justify-center z-20">
-              <div className="pixel-text text-4xl text-secondary drop-shadow-[0_0_10px_rgba(0,240,255,0.8)]">PARCOURS REUSSI !</div>
-            </div>
-          )}
+      {/* Game Area — fills the remaining viewport, canvas is letterboxed */}
+      <div className="flex-1 relative bg-[#09090b] overflow-hidden">
+        <canvas
+          ref={canvasRef}
+          width={1000}
+          height={562.5} // 16:9 internal resolution
+          className="absolute inset-0 m-auto max-w-full max-h-full w-full h-full object-contain"
+          style={{ imageRendering: "pixelated" }}
+        />
 
-          {uiState.status === "won_level" && (
-            <div className="absolute inset-0 bg-accent/20 backdrop-blur-sm flex flex-col items-center justify-center z-20 p-6 text-center">
-              <div className="pixel-text text-4xl md:text-5xl text-accent drop-shadow-[0_0_15px_rgba(250,204,21,0.8)]">
-                NIVEAU {uiState.level} TERMINE !
-              </div>
-              <div className="pixel-text text-white mt-4 text-lg md:text-xl">
-                Temps : {uiState.time.toFixed(1)}s — Tentatives : {uiState.attempts}
-              </div>
-              <div className="pixel-text text-secondary mt-6 text-xl md:text-2xl drop-shadow-[0_0_8px_rgba(0,240,255,0.6)]">
-                PROCHAIN NIVEAU : {uiState.level + 1}
-              </div>
-              <div className="flex flex-col sm:flex-row gap-3 mt-8">
-                <Button
-                  onClick={goToNextLevel}
-                  size="lg"
-                  className="pixel-text text-base bg-primary hover:bg-primary/90 text-white border-2 border-border shadow-[0_0_15px_rgba(255,0,85,0.5)]"
-                >
-                  JOUER
-                </Button>
-                <Button
-                  onClick={() => setLocation("/")}
-                  variant="secondary"
-                  size="lg"
-                  className="pixel-text text-base border-2 border-border"
-                >
-                  RETOUR A L'ACCUEIL
-                </Button>
-              </div>
+        {uiState.status === "loading" && (
+          <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-20">
+            <div className="graffiti-text text-3xl text-white tracking-widest animate-pulse">CHARGEMENT...</div>
+          </div>
+        )}
+
+        {uiState.status === "dead" && (
+          <div className="absolute inset-0 bg-destructive/20 flex flex-col items-center justify-center z-20">
+            <div className="graffiti-text text-5xl md:text-6xl text-destructive drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]">MORT !</div>
+            <div className="graffiti-text text-white mt-2 text-xl">Redémarrage...</div>
+          </div>
+        )}
+
+        {uiState.status === "won_parcours" && (
+          <div className="absolute inset-0 bg-secondary/20 flex flex-col items-center justify-center z-20">
+            <div className="graffiti-text text-4xl md:text-5xl text-secondary drop-shadow-[0_0_10px_rgba(0,240,255,0.8)]">PARCOURS RÉUSSI !</div>
+          </div>
+        )}
+
+        {uiState.status === "won_level" && (
+          <div className="absolute inset-0 bg-accent/30 backdrop-blur-sm flex flex-col items-center justify-center z-20 p-6 text-center">
+            <div className="graffiti-text text-3xl md:text-5xl text-accent drop-shadow-[0_0_15px_rgba(250,204,21,0.8)] tracking-wider">
+              NIVEAU {uiState.level} TERMINÉ !
             </div>
-          )}
+            <div className="graffiti-text text-white mt-3 text-lg md:text-xl">
+              Temps : {uiState.time.toFixed(1)}s — Tentatives : {uiState.attempts}
+            </div>
+            <div className="graffiti-text text-secondary mt-4 text-xl md:text-3xl drop-shadow-[0_0_8px_rgba(0,240,255,0.6)] tracking-wider">
+              PROCHAIN NIVEAU : {uiState.level + 1}
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 mt-6">
+              <Button
+                onClick={goToNextLevel}
+                size="lg"
+                className="graffiti-text text-xl tracking-widest bg-primary hover:bg-primary/90 text-white border-2 border-border shadow-[0_0_15px_rgba(255,0,85,0.5)]"
+              >
+                JOUER
+              </Button>
+              <Button
+                onClick={() => setLocation("/")}
+                variant="secondary"
+                size="lg"
+                className="graffiti-text text-xl tracking-widest border-2 border-border"
+              >
+                RETOUR À L'ACCUEIL
+              </Button>
+            </div>
+          </div>
+        )}
 
-          <canvas 
-            ref={canvasRef} 
-            width={1000} 
-            height={562.5} // 16:9
-            className="w-full h-full object-cover bg-[#09090b]"
-            style={{ imageRendering: "pixelated" }}
-          />
-        </div>
-      </div>
-      
-      {/* Desktop Controls Guide */}
-      <div className="p-4 hidden md:flex justify-center gap-8 border-t-4 border-border bg-card pixel-text text-xs text-muted-foreground">
-        <div className="flex items-center gap-2"><div className="p-2 border-2 border-border rounded bg-background">← → / A D</div> BOUGER</div>
-        <div className="flex items-center gap-2"><div className="p-2 border-2 border-border rounded bg-background">↑ / W / ESPACE</div> SAUTER</div>
-      </div>
+        {/* Mobile Touch Controls — overlaid on the canvas so the playfield uses full screen */}
+        <div className="md:hidden absolute inset-x-0 bottom-0 z-30 flex justify-between items-end p-3 select-none touch-none pointer-events-none">
+          <div className="flex gap-2 pointer-events-auto">
+            <button
+              type="button"
+              aria-label="Gauche"
+              className="w-16 h-16 border-4 border-border rounded-full bg-background/70 backdrop-blur active:bg-primary/40 flex items-center justify-center graffiti-text text-3xl text-white shadow-lg"
+              onTouchStart={(e) => { e.preventDefault(); keysRef.current["ArrowLeft"] = true; }}
+              onTouchEnd={(e) => { e.preventDefault(); keysRef.current["ArrowLeft"] = false; }}
+              onTouchCancel={(e) => { e.preventDefault(); keysRef.current["ArrowLeft"] = false; }}
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              aria-label="Droite"
+              className="w-16 h-16 border-4 border-border rounded-full bg-background/70 backdrop-blur active:bg-primary/40 flex items-center justify-center graffiti-text text-3xl text-white shadow-lg"
+              onTouchStart={(e) => { e.preventDefault(); keysRef.current["ArrowRight"] = true; }}
+              onTouchEnd={(e) => { e.preventDefault(); keysRef.current["ArrowRight"] = false; }}
+              onTouchCancel={(e) => { e.preventDefault(); keysRef.current["ArrowRight"] = false; }}
+            >
+              →
+            </button>
+          </div>
 
-      {/* Mobile Touch Controls */}
-      <div className="md:hidden flex justify-between items-end p-4 border-t-4 border-border bg-card select-none touch-none">
-        <div className="flex gap-3">
           <button
             type="button"
-            aria-label="Gauche"
-            className="w-20 h-20 border-4 border-border rounded-full bg-background active:bg-primary/40 flex items-center justify-center pixel-text text-3xl text-white shadow-lg"
-            onTouchStart={(e) => { e.preventDefault(); keysRef.current["ArrowLeft"] = true; }}
-            onTouchEnd={(e) => { e.preventDefault(); keysRef.current["ArrowLeft"] = false; }}
-            onTouchCancel={(e) => { e.preventDefault(); keysRef.current["ArrowLeft"] = false; }}
-            onMouseDown={(e) => { e.preventDefault(); keysRef.current["ArrowLeft"] = true; }}
-            onMouseUp={(e) => { e.preventDefault(); keysRef.current["ArrowLeft"] = false; }}
-            onMouseLeave={() => { keysRef.current["ArrowLeft"] = false; }}
+            aria-label="Sauter"
+            className="w-20 h-20 border-4 border-primary rounded-full bg-primary/30 backdrop-blur active:bg-primary/60 flex items-center justify-center graffiti-text text-base tracking-widest text-white shadow-lg drop-shadow-[0_0_8px_rgba(255,0,85,0.5)] pointer-events-auto"
+            onTouchStart={(e) => { e.preventDefault(); keysRef.current[" "] = true; }}
+            onTouchEnd={(e) => { e.preventDefault(); keysRef.current[" "] = false; }}
+            onTouchCancel={(e) => { e.preventDefault(); keysRef.current[" "] = false; }}
           >
-            ←
-          </button>
-          <button
-            type="button"
-            aria-label="Droite"
-            className="w-20 h-20 border-4 border-border rounded-full bg-background active:bg-primary/40 flex items-center justify-center pixel-text text-3xl text-white shadow-lg"
-            onTouchStart={(e) => { e.preventDefault(); keysRef.current["ArrowRight"] = true; }}
-            onTouchEnd={(e) => { e.preventDefault(); keysRef.current["ArrowRight"] = false; }}
-            onTouchCancel={(e) => { e.preventDefault(); keysRef.current["ArrowRight"] = false; }}
-            onMouseDown={(e) => { e.preventDefault(); keysRef.current["ArrowRight"] = true; }}
-            onMouseUp={(e) => { e.preventDefault(); keysRef.current["ArrowRight"] = false; }}
-            onMouseLeave={() => { keysRef.current["ArrowRight"] = false; }}
-          >
-            →
+            SAUT
           </button>
         </div>
-
-        <button
-          type="button"
-          aria-label="Sauter"
-          className="w-24 h-24 border-4 border-primary rounded-full bg-primary/20 active:bg-primary/60 flex items-center justify-center pixel-text text-sm text-primary shadow-lg drop-shadow-[0_0_8px_rgba(255,0,85,0.5)]"
-          onTouchStart={(e) => { e.preventDefault(); keysRef.current[" "] = true; }}
-          onTouchEnd={(e) => { e.preventDefault(); keysRef.current[" "] = false; }}
-          onTouchCancel={(e) => { e.preventDefault(); keysRef.current[" "] = false; }}
-          onMouseDown={(e) => { e.preventDefault(); keysRef.current[" "] = true; }}
-          onMouseUp={(e) => { e.preventDefault(); keysRef.current[" "] = false; }}
-          onMouseLeave={() => { keysRef.current[" "] = false; }}
-        >
-          SAUTER
-        </button>
       </div>
     </div>
   );

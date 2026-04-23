@@ -43,42 +43,6 @@ export interface Train {
   color: string;
 }
 
-export interface GameState {
-  player: {
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-    vx: number;
-    vy: number;
-    color: string;
-    isGrounded: boolean;
-  };
-  platforms: Platform[];
-  trains: Train[];
-  croustys: Crousty[];
-  decorations: Decoration[];
-  level: number;
-  parcours: number;
-  totalParcours: number;
-  time: number;
-  status: "playing" | "dead" | "won_parcours" | "won_level";
-  worldEnd: number;     // x position where the level ends
-  theme: LevelTheme;
-}
-
-export type LevelTheme = "metro" | "rooftops" | "boulevard" | "night";
-
-// Named levels — falls back to "Niveau N" for any unnamed level
-export const LEVEL_NAMES: Record<number, string> = {
-  1: "RER A",
-  2: "CroustyAttack",
-};
-
-export function getLevelName(level: number): string {
-  return LEVEL_NAMES[level] ?? `Niveau ${level}`;
-}
-
 export interface Crousty {
   x: number;
   y: number;
@@ -93,6 +57,154 @@ export interface Crousty {
   spin: number;     // rotation speed
 }
 
+// Laser: a horizontal or vertical deadly beam that pulses on/off
+export interface Laser {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  // Phase in seconds: laser is "on" when (time + offset) % period < onDuration
+  period: number;
+  onDuration: number;
+  offset: number;
+  orientation: "horizontal" | "vertical";
+}
+
+export interface GameState {
+  player: {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    vx: number;
+    vy: number;
+    color: string;
+    isGrounded: boolean;
+  };
+  platforms: Platform[];
+  trains: Train[];
+  croustys: Crousty[];
+  lasers: Laser[];
+  decorations: Decoration[];
+  level: number;
+  parcours: number;
+  totalParcours: number;
+  time: number;
+  status: "playing" | "dead" | "won_parcours" | "won_level";
+  worldEnd: number;     // x position where the level ends
+  theme: LevelTheme;
+}
+
+export type LevelTheme = "metro" | "rooftops" | "boulevard" | "night";
+
+// Named levels — Paris-themed names for all 100 levels.
+export const LEVEL_NAMES: Record<number, string> = {
+  1: "RER A",
+  2: "Crousty Attack",
+  3: "Métro Châtelet",
+  4: "Rue de Rivoli",
+  5: "Tour Eiffel",
+  6: "Sacré-Cœur",
+  7: "Pigalle by Night",
+  8: "Canal St-Martin",
+  9: "Bastille",
+  10: "Champs-Élysées",
+  11: "Gare du Nord",
+  12: "Belleville Beat",
+  13: "Lasers de Beaubourg",
+  14: "Rooftop République",
+  15: "Bois de Vincennes",
+  16: "Crousty Rush",
+  17: "Boulevard Magenta",
+  18: "Métro Barbès",
+  19: "Pont Neuf",
+  20: "Tournée du 20e",
+  21: "RER B Express",
+  22: "Lasers Saint-Lazare",
+  23: "Catacombes",
+  24: "Crousty Storm",
+  25: "Quai de Seine",
+  26: "Trocadéro",
+  27: "Place Vendôme",
+  28: "Le Marais",
+  29: "Cimetière du Père-Lachaise",
+  30: "Étoile",
+  31: "Métro Stalingrad",
+  32: "Lasers du Louvre",
+  33: "Crousty Rampage",
+  34: "Pont des Arts",
+  35: "Boulevard Saint-Michel",
+  36: "Place de la Concorde",
+  37: "Buttes-Chaumont",
+  38: "RER C Tornado",
+  39: "Lasers de la Défense",
+  40: "Tour Montparnasse",
+  41: "Crousty Apocalypse",
+  42: "Bercy Village",
+  43: "Tramway T3",
+  44: "Lasers Opéra",
+  45: "Quartier Latin",
+  46: "Métro Nation",
+  47: "Crousty Hurricane",
+  48: "Pont Alexandre III",
+  49: "Place de la République",
+  50: "Mi-Parcours : Boss",
+  51: "RER D Furie",
+  52: "Lasers Châtelet-Les-Halles",
+  53: "Crousty Tsunami",
+  54: "Boulevard Périph'",
+  55: "Métro 14",
+  56: "Roof Run République",
+  57: "Lasers Bibliothèque",
+  58: "Crousty Inferno",
+  59: "Bouquinistes",
+  60: "Pont Marie",
+  61: "Métro Censier",
+  62: "Lasers Bastille",
+  63: "Crousty Vortex",
+  64: "Sacré-Cœur Express",
+  65: "Place Vendôme Sprint",
+  66: "Lasers Forum des Halles",
+  67: "Crousty Cataclysme",
+  68: "Métro Abbesses",
+  69: "Bois de Boulogne",
+  70: "Pyramide du Louvre",
+  71: "Crousty Anarchie",
+  72: "Lasers Tour Eiffel",
+  73: "Tramway Express",
+  74: "Métro Arts-et-Métiers",
+  75: "Trois Quarts",
+  76: "RER E Délire",
+  77: "Lasers Pigalle",
+  78: "Crousty Délire",
+  79: "Boulevard Voltaire",
+  80: "Place d'Italie",
+  81: "Métro Pyramides",
+  82: "Lasers Notre-Dame",
+  83: "Crousty Chaos",
+  84: "Pont de l'Alma",
+  85: "Marché aux Puces",
+  86: "Métro Réaumur",
+  87: "Lasers Gare de Lyon",
+  88: "Crousty Frénésie",
+  89: "Place du Tertre",
+  90: "Sprint final",
+  91: "Métro Hyper-Vitesse",
+  92: "Lasers de l'Observatoire",
+  93: "Crousty Massacre",
+  94: "Périph' Infini",
+  95: "Lasers du Trocadéro",
+  96: "Crousty Damné",
+  97: "Maze de Montmartre",
+  98: "Métro Fantôme",
+  99: "Lasers Apocalypse",
+  100: "Boss Final : Tour Paname",
+};
+
+export function getLevelName(level: number): string {
+  return LEVEL_NAMES[level] ?? `Niveau ${level}`;
+}
+
 export const GRAVITY = 0.6;
 export const JUMP_FORCE = -12;
 export const MOVE_SPEED = 5;
@@ -105,6 +217,12 @@ export function checkCollision(r1: Rect, r2: Rect) {
     r1.y < r2.y + r2.h &&
     r1.y + r1.h > r2.y
   );
+}
+
+// Whether a laser is currently emitting (and therefore deadly) at a given time.
+export function isLaserActive(l: Laser, time: number): boolean {
+  const t = (time + l.offset) % l.period;
+  return t >= 0 && t < l.onDuration;
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -128,14 +246,39 @@ function pickTheme(level: number): LevelTheme {
 
 export function getTotalParcours(level: number) {
   if (level <= 2) return 1;
-  if (level < 100) return 2;
-  return 4;
+  if (level <= 30) return 2;
+  if (level <= 70) return 3;
+  if (level < 100) return 4;
+  return 5; // boss
+}
+
+// Per-level mechanic mix: which obstacle families show up.
+function levelMechanics(level: number) {
+  // From the named list, deduce from name. Fallback by level number.
+  const name = (LEVEL_NAMES[level] ?? "").toLowerCase();
+  const hasLaserName = name.includes("laser");
+  const hasCroustyName = name.includes("crousty");
+
+  // Default: trains. Add lasers/croustys based on level milestones for variety.
+  const useTrains = !hasLaserName && !hasCroustyName ? true : level >= 20;
+  const useCroustys = hasCroustyName || level === 2 || (level % 5 === 0 && level > 10);
+  const useLasers = hasLaserName || (level >= 13 && level % 7 === 0);
+
+  // Boss / late-game: enable everything.
+  const isBoss = level === 50 || level === 100;
+  return {
+    useTrains: isBoss ? true : useTrains,
+    useCroustys: isBoss ? true : useCroustys,
+    useLasers: isBoss ? true : useLasers,
+    isBoss,
+  };
 }
 
 interface GeneratedLevel {
   platforms: Platform[];
   trains: Train[];
   croustys: Crousty[];
+  lasers: Laser[];
   decorations: Decoration[];
   worldEnd: number;
   theme: LevelTheme;
@@ -145,14 +288,13 @@ export function generateLevel(level: number, parcoursIndex: number): GeneratedLe
   const seed = level * 100003 + parcoursIndex * 977 + 7;
   const rng = mulberry32(seed);
   const theme = pickTheme(level);
+  const mechanics = levelMechanics(level);
 
   const platforms: Platform[] = [];
   const trains: Train[] = [];
   const croustys: Crousty[] = [];
+  const lasers: Laser[] = [];
   const decorations: Decoration[] = [];
-
-  // Some levels use food-projectile obstacles instead of trains
-  const isCroustyLevel = level === 2;
 
   const difficulty = Math.min(level / 10, 10); // 0 to 10
   const groundY = 540;
@@ -169,30 +311,31 @@ export function generateLevel(level: number, parcoursIndex: number): GeneratedLe
   let currentX = 280;
   let currentY = groundY;
 
-  const numSegments = 6 + Math.floor(difficulty * 2);
+  const numSegments = 6 + Math.floor(difficulty * 2) + (mechanics.isBoss ? 4 : 0);
+
+  // Helper: pick a hazard family based on what's enabled for this level
+  const pickHazard = (): "train" | "crousty" | "laser" => {
+    const choices: Array<"train" | "crousty" | "laser"> = [];
+    if (mechanics.useTrains) choices.push("train");
+    if (mechanics.useCroustys) choices.push("crousty");
+    if (mechanics.useLasers) choices.push("laser");
+    if (choices.length === 0) choices.push("train");
+    return choices[Math.floor(rng() * choices.length)];
+  };
 
   for (let i = 0; i < numSegments; i++) {
-    // Decide segment type
     const r = rng();
-    const useTrain = r < 0.35 + difficulty * 0.02 && i > 0;
-    const useFloating = !useTrain && r < 0.65;
+    const useHazard = r < 0.4 + difficulty * 0.02 && i > 0;
+    const useFloating = !useHazard && r < 0.7;
 
-    if (useTrain) {
-      // Hazard segment: ground stretch with either trains (default) or croustys
+    if (useHazard) {
+      const hazard = pickHazard();
       const stretchLen = 280 + rng() * 120;
       const gapAfter = 80 + rng() * 40;
 
-      if (isCroustyLevel) {
-        // Plain ground here so player can run through
-        platforms.push({
-          x: currentX,
-          y: groundY,
-          w: stretchLen,
-          h: 60,
-          type: startType,
-        });
+      if (hazard === "crousty") {
+        platforms.push({ x: currentX, y: groundY, w: stretchLen, h: 60, type: startType });
 
-        // Spawn 1-3 flying croustys arcing across the lane
         const numCroustys = 1 + Math.floor(rng() * 3);
         for (let cIx = 0; cIx < numCroustys; cIx++) {
           const cw = 70 + rng() * 30;
@@ -200,7 +343,7 @@ export function generateLevel(level: number, parcoursIndex: number): GeneratedLe
           const fromRight = rng() < 0.5;
           const speed = 3 + difficulty * 0.3 + rng() * 1.5;
           const startXc = fromRight ? currentX + stretchLen + 40 : currentX - cw - 40;
-          const endXc   = fromRight ? currentX - cw - 80     : currentX + stretchLen + 80;
+          const endXc = fromRight ? currentX - cw - 80 : currentX + stretchLen + 80;
           croustys.push({
             x: startXc,
             y: groundY - ch - 60 - rng() * 80,
@@ -216,18 +359,50 @@ export function generateLevel(level: number, parcoursIndex: number): GeneratedLe
           });
         }
 
-        // Warning sign decoration
+        decorations.push({ x: currentX + 20, y: groundY, type: "sign", scale: 0.9, parallax: 0 });
+        decorations.push({ x: currentX + stretchLen - 30, y: groundY, type: "lamp", scale: 0.9, parallax: 0 });
+      } else if (hazard === "laser") {
+        // Ground stretch with one or more pulsing horizontal/vertical lasers
+        platforms.push({ x: currentX, y: groundY, w: stretchLen, h: 60, type: startType });
+
+        const numLasers = 1 + Math.floor(rng() * 2) + (mechanics.isBoss ? 1 : 0);
+        for (let lIx = 0; lIx < numLasers; lIx++) {
+          const isVertical = rng() < 0.55;
+          const lx = currentX + 40 + (lIx + 0.5) * (stretchLen / (numLasers + 1));
+          if (isVertical) {
+            // Vertical beam from sky to ground (spans almost the playfield)
+            const beamH = 380;
+            lasers.push({
+              x: lx - 6,
+              y: groundY - beamH,
+              w: 12,
+              h: beamH,
+              period: 1.6 - Math.min(0.6, difficulty * 0.04),
+              onDuration: 0.55 + rng() * 0.15,
+              offset: rng() * 1.5,
+              orientation: "vertical",
+            });
+          } else {
+            // Horizontal beam at jump-height (~140 above ground)
+            const beamW = 160 + rng() * 80;
+            lasers.push({
+              x: lx - beamW / 2,
+              y: groundY - 140 - rng() * 40,
+              w: beamW,
+              h: 12,
+              period: 1.6 - Math.min(0.6, difficulty * 0.04),
+              onDuration: 0.55 + rng() * 0.15,
+              offset: rng() * 1.5,
+              orientation: "horizontal",
+            });
+          }
+        }
+
         decorations.push({ x: currentX + 20, y: groundY, type: "sign", scale: 0.9, parallax: 0 });
         decorations.push({ x: currentX + stretchLen - 30, y: groundY, type: "lamp", scale: 0.9, parallax: 0 });
       } else {
-        // Rail + train segment
-        platforms.push({
-          x: currentX,
-          y: groundY,
-          w: stretchLen,
-          h: 60,
-          type: "rail",
-        });
+        // Train hazard
+        platforms.push({ x: currentX, y: groundY, w: stretchLen, h: 60, type: "rail" });
 
         const trainH = 70;
         const trainW = 130 + rng() * 60;
@@ -264,7 +439,6 @@ export function generateLevel(level: number, parcoursIndex: number): GeneratedLe
         theme === "rooftops" ? "rooftop" : theme === "metro" ? "metro" : "normal";
       platforms.push({ x: currentX, y: currentY, w: width, h: 28, type: platType });
 
-      // Random decoration on top
       if (rng() < 0.4) {
         decorations.push({
           x: currentX + width / 2 - 8,
@@ -281,7 +455,6 @@ export function generateLevel(level: number, parcoursIndex: number): GeneratedLe
       const len = 200 + rng() * 200;
       platforms.push({ x: currentX, y: groundY, w: len, h: 60, type: startType });
 
-      // Add some decorations
       const numDecos = 1 + Math.floor(rng() * 3);
       for (let d = 0; d < numDecos; d++) {
         const dx = currentX + 30 + rng() * (len - 60);
@@ -316,9 +489,7 @@ export function generateLevel(level: number, parcoursIndex: number): GeneratedLe
   // ── Goal platform ────────────────────────────────────────
   const goalX = currentX + 80;
   const goalY = groundY - 90;
-  // Pedestal under goal
   platforms.push({ x: goalX - 20, y: groundY, w: 140, h: 60, type: startType });
-  // The goal trigger (yellow zone)
   platforms.push({ x: goalX, y: goalY, w: 100, h: 90, type: "goal" });
 
   // ── Floor lava (death pit) ───────────────────────────────
@@ -326,7 +497,6 @@ export function generateLevel(level: number, parcoursIndex: number): GeneratedLe
 
   // ── Background decorations (parallax) ────────────────────
   const skyEnd = goalX + 200;
-  // Moon / sun
   decorations.push({
     x: 100,
     y: 60,
@@ -334,7 +504,6 @@ export function generateLevel(level: number, parcoursIndex: number): GeneratedLe
     scale: 1.4,
     parallax: 0.9,
   });
-  // Clouds
   for (let c = 0; c < 6; c++) {
     decorations.push({
       x: rng() * skyEnd,
@@ -344,7 +513,6 @@ export function generateLevel(level: number, parcoursIndex: number): GeneratedLe
       parallax: 0.85,
     });
   }
-  // Mid-back buildings
   for (let b = 0; b < 14; b++) {
     decorations.push({
       x: rng() * skyEnd,
@@ -354,7 +522,6 @@ export function generateLevel(level: number, parcoursIndex: number): GeneratedLe
       parallax: 0.55,
     });
   }
-  // Eiffel tower somewhere
   decorations.push({
     x: skyEnd * (0.3 + rng() * 0.4),
     y: groundY,
@@ -367,6 +534,7 @@ export function generateLevel(level: number, parcoursIndex: number): GeneratedLe
     platforms,
     trains,
     croustys,
+    lasers,
     decorations,
     worldEnd: goalX + 200,
     theme,

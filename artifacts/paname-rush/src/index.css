@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Press+Start+2P&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
 
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -95,6 +95,7 @@
   --app-font-sans: 'Space Mono', monospace;
   --app-font-pixel: 'Press Start 2P', cursive;
   --app-font-mono: 'Space Mono', monospace;
+  --app-font-graffiti: 'Bangers', 'Impact', system-ui, sans-serif;
   --radius: 0; /* Square edges for retro feel */
 }
 
@@ -114,6 +115,12 @@
 
 .pixel-text {
   font-family: var(--font-pixel);
+}
+
+.graffiti-text {
+  font-family: var(--app-font-graffiti);
+  letter-spacing: 0.04em;
+  -webkit-text-stroke: 1px rgba(0, 0, 0, 0.6);
 }
 
 .pixel-border {

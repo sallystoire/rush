@@ -102,7 +102,7 @@ export default function Home() {
         />
       </div>
 
-      <div className="text-center z-10 flex flex-col items-center gap-8 px-6">
+      <div className="text-center z-10 flex flex-col items-center gap-4 px-6">
         {/* Logo image instead of text */}
         <img
           src={logoImg}
@@ -111,12 +111,12 @@ export default function Home() {
         />
 
         {insideDiscord && player && (
-          <p className="text-sm text-lime-300 pixel-text">
+          <p className="text-base text-lime-300 graffiti-text tracking-wider">
             Connecté en tant que {player.username}
           </p>
         )}
 
-        <div className="flex flex-col gap-4 w-full max-w-sm items-center">
+        <div className="flex flex-col items-center -space-y-2">
           <button
             type="button"
             onClick={handlePlay}
@@ -124,7 +124,7 @@ export default function Home() {
             className="transition-transform hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
             aria-label="Jouer"
           >
-            <img src={jouerImg} alt="Jouer" className="w-72 drop-shadow-[0_5px_15px_rgba(0,0,0,0.6)]" />
+            <img src={jouerImg} alt="Jouer" className="w-64 sm:w-72 drop-shadow-[0_5px_15px_rgba(0,0,0,0.6)]" />
           </button>
           <button
             type="button"
@@ -132,7 +132,7 @@ export default function Home() {
             className="transition-transform hover:scale-110 active:scale-95 focus:outline-none"
             aria-label="Crédits"
           >
-            <img src={creditsImg} alt="Crédits" className="w-56 drop-shadow-[0_5px_15px_rgba(0,0,0,0.6)]" />
+            <img src={creditsImg} alt="Crédits" className="w-52 sm:w-60 drop-shadow-[0_5px_15px_rgba(0,0,0,0.6)]" />
           </button>
         </div>
       </div>
