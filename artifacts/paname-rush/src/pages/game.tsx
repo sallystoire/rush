@@ -171,6 +171,9 @@ export default function Game() {
     if ((keys["ArrowUp"] || keys["w"] || keys["z"] || keys[" "]) && p.isGrounded) {
       p.vy = JUMP_FORCE;
       p.isGrounded = false;
+      if (typeof navigator !== "undefined" && navigator.vibrate) {
+        navigator.vibrate(20);
+      }
     }
 
     // Apply physics
@@ -233,7 +236,11 @@ export default function Game() {
   const die = useCallback(() => {
     if (!gameStateRef.current) return;
     const state = gameStateRef.current;
-    
+
+    if (typeof navigator !== "undefined" && navigator.vibrate) {
+      navigator.vibrate([60, 40, 120]);
+    }
+
     // Levels 90-100: restart entire level
     if (state.level >= 90) {
       state.status = "dead";
