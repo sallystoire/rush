@@ -552,6 +552,7 @@ export default function Game() {
   const [voiceError, setVoiceError] = useState<string | null>(null);
   
   const gameStateRef = useRef<GameState | null>(null);
+  const sessionStartedRef = useRef(false);
   
   const keysRef = useRef<{ [key: string]: boolean }>({});
   
@@ -586,14 +587,19 @@ export default function Game() {
     setVoiceError(null);
   }, [insideDiscord, discordReady, guildId, channelId]);
 
-  // Init game
+  // Init game — runs only once. Using player as dep so it waits for auth to resolve,
+  // but the sessionStartedRef guard prevents re-running when player updates mid-game
+  // (e.g. after level completion saves progress and updates the player object).
   useEffect(() => {
+    if (sessionStartedRef.current) return;
     if (!player) {
       setLocation("/");
       return;
     }
     if (voiceError) return;
     
+    sessionStartedRef.current = true;
+
     // Start session
     startGame.mutate(
       { data: { playerId: player.id, mode: isTeamMode ? "team" : "solo", teamId: isTeamMode && player.teamId ? player.teamId : undefined } },
@@ -603,6 +609,7 @@ export default function Game() {
           initLevel(session.currentLevel, 1);
         },
         onError: () => {
+          sessionStartedRef.current = false; // allow retry on error
           toast({ title: "Erreur", description: "Impossible de demarrer la partie.", variant: "destructive" });
           setLocation("/game-mode");
         }
