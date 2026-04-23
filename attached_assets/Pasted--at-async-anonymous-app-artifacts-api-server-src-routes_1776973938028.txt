@@ -1,0 +1,61 @@
+    at async <anonymous> (/app/artifacts/api-server/src/routes/players.ts:19:20)
+request errored
+Error: Failed query: select "id", "username", "avatar_url", "color", "level", "best_time", "team_id", "created_at" from "players" where "players"."username" = $1 limit $2
+params: Sally,1
+    at NodePgPreparedQuery.queryWithCache (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async <anonymous> (/app/artifacts/api-server/src/routes/players.ts:19:20)
+request errored
+params: Sally,1
+    at NodePgPreparedQuery.queryWithCache (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async <anonymous> (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    at async <anonymous> (/app/artifacts/api-server/src/routes/players.ts:19:20)
+request errored
+Error: Failed query: select "id", "username", "avatar_url", "color", "level", "best_time", "team_id", "created_at" from "players" where "players"."username" = $1 limit $2
+params: Sally,1
+    at NodePgPreparedQuery.queryWithCache (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at async <anonymous> (/app/artifacts/api-server/src/routes/players.ts:19:20)
+request errored
+Error: Failed query: select "id", "username", "avatar_url", "color", "level", "best_time", "team_id", "created_at" from "players" where "players"."username" = $1 limit $2
+params: Sally,1
+    at NodePgPreparedQuery.queryWithCache (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async <anonymous> (/app/artifacts/api-server/src/routes/players.ts:19:20)
+request errored
+Error: Failed query: select "id", "username", "avatar_url", "color", "level", "best_time", "team_id", "created_at" from "players" where "players"."username" = $1 limit $2
+Error: Failed query: select "id", "username", "avatar_url", "color", "level", "best_time", "team_id", "created_at" from "players" where "players"."username" = $1 limit $2
+    at NodePgPreparedQuery.queryWithCache (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async <anonymous> (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    at async <anonymous> (/app/artifacts/api-server/src/routes/players.ts:19:20)
+request errored
+    at NodePgPreparedQuery.queryWithCache (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at async <anonymous> (/app/artifacts/api-server/src/routes/players.ts:19:20)
+request errored
+    at async <anonymous> (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    at async <anonymous> (/app/artifacts/api-server/src/routes/players.ts:19:20)
+params: Sally,1
+Error: Failed query: select "id", "username", "avatar_url", "color", "level", "best_time", "team_id", "created_at" from "players" where "players"."username" = $1 limit $2
+params: Sally,1
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+Error: Failed query: select "id", "username", "avatar_url", "color", "level", "best_time", "team_id", "created_at" from "players" where "players"."username" = $1 limit $2
+params: Sally,1
+    at NodePgPreparedQuery.queryWithCache (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async <anonymous> (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    at async <anonymous> (/app/artifacts/api-server/src/routes/players.ts:19:20)
+params: Sally,1
+    at NodePgPreparedQuery.queryWithCache (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+params: Sally,1
+    at async <anonymous> (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
+    at async <anonymous> (/app/artifacts/api-server/src/routes/players.ts:19:20)
+Error: Failed query: select "id", "username", "avatar_url", "color", "level", "best_time", "team_id", "created_at" from "players" where "players"."username" = $1 limit $2
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async <anonymous> (/app/artifacts/api-server/src/routes/players.ts:19:20)
+Error: Failed query: select "id", "username", "avatar_url", "color", "level", "best_time", "team_id", "created_at" from "players" where "players"."username" = $1 limit $2
+    at NodePgPreparedQuery.queryWithCache (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/pg-core/session.ts:73:11)
+Error: Failed query: select "id", "username", "avatar_url", "color", "level", "best_time", "team_id", "created_at" from "players" where "players"."username" = $1 limit $2
+params: Sally,1
+    at async <anonymous> (/app/node_modules/.pnpm/drizzle-orm@0.45.1_@types+pg@8.18.0_pg@8.20.0/node_modules/src/node-postgres/session.ts:154:19)
