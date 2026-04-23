@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -6,33 +6,65 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCreatePlayer } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useDiscord } from "@/hooks/use-discord";
+
+const COLORS = ["#ff0055", "#00f0ff", "#00ffaa", "#ffea00", "#ffaa00", "#aa00ff"];
+
+function pickColor() {
+  return COLORS[Math.floor(Math.random() * COLORS.length)];
+}
 
 export default function Home() {
   const [, setLocation] = useLocation();
   const [showCredits, setShowCredits] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [username, setUsername] = useState("");
-  
+  const [autoSyncing, setAutoSyncing] = useState(false);
+
   const { player, setPlayer } = useAuth();
+  const { inside: insideDiscord, user: discordUser } = useDiscord();
   const createPlayer = useCreatePlayer();
+
+  // Auto-sync the Discord identity into our player record as soon as we have it.
+  useEffect(() => {
+    if (!insideDiscord || !discordUser) return;
+    const desiredName = discordUser.global_name || discordUser.username;
+    if (player && player.username === desiredName) return;
+    if (autoSyncing || createPlayer.isPending) return;
+
+    setAutoSyncing(true);
+    const avatarUrl = discordUser.avatar
+      ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`
+      : undefined;
+
+    createPlayer.mutate(
+      { data: { username: desiredName, color: pickColor(), avatarUrl } },
+      {
+        onSuccess: (synced) => {
+          setPlayer(synced);
+          setAutoSyncing(false);
+        },
+        onError: () => setAutoSyncing(false),
+      }
+    );
+  }, [insideDiscord, discordUser, player, autoSyncing, createPlayer, setPlayer]);
 
   const handlePlay = () => {
     if (player) {
       setLocation("/game-mode");
-    } else {
-      setShowLogin(true);
+      return;
     }
+    // Inside Discord we wait for the auto-sync to finish instead of asking for a pseudo.
+    if (insideDiscord) return;
+    setShowLogin(true);
   };
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim()) return;
 
-    const colors = ["#ff0055", "#00f0ff", "#00ffaa", "#ffea00", "#ffaa00", "#aa00ff"];
-    const randomColor = colors[Math.floor(Math.random() * colors.length)];
-
     createPlayer.mutate(
-      { data: { username: username.trim(), color: randomColor } },
+      { data: { username: username.trim(), color: pickColor() } },
       {
         onSuccess: (newPlayer) => {
           setPlayer(newPlayer);
@@ -42,6 +74,15 @@ export default function Home() {
       }
     );
   };
+
+  const playButtonLabel = (() => {
+    if (insideDiscord && !player && (autoSyncing || createPlayer.isPending)) {
+      return "CONNEXION...";
+    }
+    return "JOUER";
+  })();
+
+  const playDisabled = insideDiscord && !player && (autoSyncing || createPlayer.isPending);
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-background relative overflow-hidden">
@@ -59,19 +100,25 @@ export default function Home() {
           <p className="text-muted-foreground text-xl tracking-widest uppercase">
             La Course Ultime
           </p>
+          {insideDiscord && player && (
+            <p className="text-sm text-secondary pixel-text">
+              Connecté en tant que {player.username}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col gap-6 w-full max-w-xs">
-          <Button 
-            size="lg" 
+          <Button
+            size="lg"
             className="w-full text-xl h-16 bg-primary hover:bg-primary/90 text-white border-4 border-primary-foreground pixel-text pixel-border shadow-[0_0_15px_rgba(255,0,85,0.5)] hover:shadow-[0_0_25px_rgba(255,0,85,0.8)] transition-all hover:scale-105"
             onClick={handlePlay}
+            disabled={playDisabled}
           >
-            JOUER
+            {playButtonLabel}
           </Button>
-          <Button 
-            variant="outline" 
-            size="lg" 
+          <Button
+            variant="outline"
+            size="lg"
             className="w-full text-lg h-14 border-2 border-muted-foreground text-muted-foreground hover:text-white hover:border-white transition-all pixel-text"
             onClick={() => setShowCredits(true)}
           >
@@ -91,34 +138,36 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showLogin} onOpenChange={setShowLogin}>
-        <DialogContent className="border-4 border-secondary bg-background/95 backdrop-blur rounded-none">
-          <DialogHeader>
-            <DialogTitle className="pixel-text text-xl text-center text-secondary mb-4">CHOISIS TON PSEUDO</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleLoginSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="username" className="sr-only">Pseudo</Label>
-              <Input
-                id="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Entrez un pseudo..."
-                className="h-12 text-lg border-2 border-secondary focus-visible:ring-secondary rounded-none font-mono"
-                autoFocus
-                disabled={createPlayer.isPending}
-              />
-            </div>
-            <Button 
-              type="submit" 
-              className="w-full h-12 bg-secondary hover:bg-secondary/90 text-white rounded-none pixel-text border-2 border-secondary-foreground"
-              disabled={createPlayer.isPending || !username.trim()}
-            >
-              {createPlayer.isPending ? "CHARGEMENT..." : "VALIDER"}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {!insideDiscord && (
+        <Dialog open={showLogin} onOpenChange={setShowLogin}>
+          <DialogContent className="border-4 border-secondary bg-background/95 backdrop-blur rounded-none">
+            <DialogHeader>
+              <DialogTitle className="pixel-text text-xl text-center text-secondary mb-4">CHOISIS TON PSEUDO</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleLoginSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="username" className="sr-only">Pseudo</Label>
+                <Input
+                  id="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Entrez un pseudo..."
+                  className="h-12 text-lg border-2 border-secondary focus-visible:ring-secondary rounded-none font-mono"
+                  autoFocus
+                  disabled={createPlayer.isPending}
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full h-12 bg-secondary hover:bg-secondary/90 text-white rounded-none pixel-text border-2 border-secondary-foreground"
+                disabled={createPlayer.isPending || !username.trim()}
+              >
+                {createPlayer.isPending ? "CHARGEMENT..." : "VALIDER"}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
