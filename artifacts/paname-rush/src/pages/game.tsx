@@ -7,13 +7,433 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   generateLevel, getTotalParcours, 
   checkCollision, GRAVITY, JUMP_FORCE, MOVE_SPEED, MAX_FALL_SPEED,
-  type GameState, type Rect
+  type GameState, type Rect, type Platform, type Decoration, type LevelTheme
 } from "@/lib/game-engine";
 import { 
   useStartGame, 
   useCompleteLevel, 
   useUpdatePlayerProgress
 } from "@workspace/api-client-react";
+
+// ──────────────────────────────────────────────────────────────
+// Themed sky / background
+// ──────────────────────────────────────────────────────────────
+function themePalette(theme: LevelTheme) {
+  switch (theme) {
+    case "metro":
+      return { skyTop: "#1e1b4b", skyBot: "#312e81", ground: "#1f2937", glow: "#fbbf24" };
+    case "rooftops":
+      return { skyTop: "#fde68a", skyBot: "#fb7185", ground: "#7c2d12", glow: "#fbbf24" };
+    case "night":
+      return { skyTop: "#020617", skyBot: "#1e3a8a", ground: "#0f172a", glow: "#a5b4fc" };
+    case "boulevard":
+    default:
+      return { skyTop: "#7dd3fc", skyBot: "#fde68a", ground: "#27272a", glow: "#fde047" };
+  }
+}
+
+function drawSky(
+  ctx: CanvasRenderingContext2D,
+  w: number, h: number,
+  theme: LevelTheme,
+  time: number
+) {
+  const pal = themePalette(theme);
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, pal.skyTop);
+  grad.addColorStop(1, pal.skyBot);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  // Stars at night
+  if (theme === "night" || theme === "metro") {
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    for (let i = 0; i < 40; i++) {
+      const sx = ((i * 73) % w);
+      const sy = ((i * 131) % (h * 0.5));
+      const tw = 1 + ((i + Math.floor(time * 2)) % 3 === 0 ? 1 : 0);
+      ctx.fillRect(sx, sy, tw, tw);
+    }
+  }
+}
+
+function drawGroundBand(
+  ctx: CanvasRenderingContext2D,
+  camX: number, vw: number,
+  theme: LevelTheme
+) {
+  const pal = themePalette(theme);
+  // Far-back silhouette band
+  ctx.fillStyle = pal.ground;
+  ctx.globalAlpha = 0.55;
+  ctx.fillRect(camX - 100, 600, vw + 400, 200);
+  ctx.globalAlpha = 1;
+}
+
+// ──────────────────────────────────────────────────────────────
+// Platforms
+// ──────────────────────────────────────────────────────────────
+function drawPlatform(ctx: CanvasRenderingContext2D, plat: Platform, theme: LevelTheme) {
+  const { x, y, w, h, type } = plat;
+
+  if (type === "lava") {
+    // Animated-looking lava with bright top edge
+    const grad = ctx.createLinearGradient(0, y, 0, y + h);
+    grad.addColorStop(0, "#fde047");
+    grad.addColorStop(0.3, "#f97316");
+    grad.addColorStop(1, "#b91c1c");
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, w, h);
+    // Bubbles
+    ctx.fillStyle = "rgba(255,255,255,0.4)";
+    for (let i = 0; i < w; i += 18) {
+      ctx.fillRect(x + i + 3, y + 2, 3, 2);
+    }
+    return;
+  }
+
+  if (type === "goal") {
+    // Glowing yellow trophy zone with checkered flag
+    ctx.shadowColor = "#fde047";
+    ctx.shadowBlur = 20;
+    ctx.fillStyle = "#fde047";
+    ctx.fillRect(x, y, w, h);
+    ctx.shadowBlur = 0;
+    // Flag pole
+    ctx.fillStyle = "#1f2937";
+    ctx.fillRect(x + w / 2 - 2, y - 30, 4, h + 30);
+    // Checkered flag
+    const fw = 28, fh = 18;
+    for (let i = 0; i < 4; i++) {
+      for (let j = 0; j < 3; j++) {
+        ctx.fillStyle = (i + j) % 2 === 0 ? "#1f2937" : "#ffffff";
+        ctx.fillRect(x + w / 2 + 2 + i * (fw / 4), y - 26 + j * (fh / 3), fw / 4, fh / 3);
+      }
+    }
+    return;
+  }
+
+  if (type === "rail") {
+    // Train track ground: dark base + sleepers + shiny rails
+    ctx.fillStyle = "#3f3f46";
+    ctx.fillRect(x, y, w, h);
+    // Gravel highlights
+    ctx.fillStyle = "#52525b";
+    for (let i = 0; i < w; i += 8) {
+      ctx.fillRect(x + i, y + 8 + ((i * 7) % 6), 3, 2);
+    }
+    // Sleepers
+    ctx.fillStyle = "#78350f";
+    for (let i = 0; i < w; i += 24) {
+      ctx.fillRect(x + i + 2, y + 28, 18, 8);
+    }
+    // Rails (two metal lines)
+    ctx.fillStyle = "#cbd5e1";
+    ctx.fillRect(x, y + 24, w, 3);
+    ctx.fillRect(x, y + 38, w, 3);
+    return;
+  }
+
+  if (type === "metro") {
+    // Tiled metro platform with yellow safety stripe
+    ctx.fillStyle = "#fafaf9";
+    ctx.fillRect(x, y, w, h);
+    // Tile lines
+    ctx.fillStyle = "#d6d3d1";
+    for (let i = 0; i < w; i += 24) {
+      ctx.fillRect(x + i, y + 4, 1, h - 8);
+    }
+    for (let j = 0; j < h; j += 24) {
+      ctx.fillRect(x + 4, y + j, w - 8, 1);
+    }
+    // Yellow safety stripe near edge
+    ctx.fillStyle = "#facc15";
+    ctx.fillRect(x, y, w, 5);
+    ctx.fillStyle = "#1f2937";
+    ctx.fillRect(x, y + 5, w, 2);
+    return;
+  }
+
+  if (type === "rooftop") {
+    // Rooftop tile with chimney detail
+    const grad = ctx.createLinearGradient(0, y, 0, y + h);
+    grad.addColorStop(0, "#9ca3af");
+    grad.addColorStop(1, "#374151");
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, w, h);
+    // Roof edge
+    ctx.fillStyle = "#1f2937";
+    ctx.fillRect(x, y, w, 4);
+    // Slate texture
+    ctx.fillStyle = "rgba(0,0,0,0.15)";
+    for (let i = 6; i < w; i += 14) {
+      ctx.fillRect(x + i, y + 6, 1, h - 8);
+    }
+    return;
+  }
+
+  // normal: stylized stone block
+  const grad = ctx.createLinearGradient(0, y, 0, y + h);
+  grad.addColorStop(0, "#52525b");
+  grad.addColorStop(1, "#27272a");
+  ctx.fillStyle = grad;
+  ctx.fillRect(x, y, w, h);
+  // Top highlight
+  ctx.fillStyle = "#71717a";
+  ctx.fillRect(x, y, w, 4);
+  // Cobble lines
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  for (let i = 0; i < w; i += 22) {
+    ctx.fillRect(x + i, y + 4, 1, h - 4);
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+// Train (Paris RER style)
+// ──────────────────────────────────────────────────────────────
+function drawTrain(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number,
+  w: number, h: number,
+  color: string,
+  facingRight: boolean
+) {
+  // Body
+  const grad = ctx.createLinearGradient(0, y, 0, y + h);
+  grad.addColorStop(0, color);
+  grad.addColorStop(1, shade(color, -0.35));
+  ctx.fillStyle = grad;
+  roundedRect(ctx, x, y + 4, w, h - 14, 6);
+  ctx.fill();
+
+  // Roof
+  ctx.fillStyle = shade(color, -0.5);
+  ctx.fillRect(x + 4, y, w - 8, 6);
+
+  // Front nose (a bit darker on front side)
+  ctx.fillStyle = shade(color, -0.25);
+  if (facingRight) {
+    roundedRect(ctx, x + w - 22, y + 8, 22, h - 18, 6);
+  } else {
+    roundedRect(ctx, x, y + 8, 22, h - 18, 6);
+  }
+  ctx.fill();
+
+  // Windows
+  ctx.fillStyle = "#bae6fd";
+  const winW = 18, winH = 16, gap = 6;
+  const winY = y + 14;
+  let firstWinX = x + 14;
+  let lastWinX = x + w - 14 - winW;
+  let wx = firstWinX;
+  while (wx <= lastWinX) {
+    ctx.fillRect(wx, winY, winW, winH);
+    // Window divider
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(wx + winW / 2 - 1, winY, 2, winH);
+    ctx.fillStyle = "#bae6fd";
+    wx += winW + gap;
+  }
+
+  // Headlight
+  ctx.fillStyle = "#fef9c3";
+  if (facingRight) {
+    ctx.fillRect(x + w - 6, y + h - 22, 4, 6);
+  } else {
+    ctx.fillRect(x + 2, y + h - 22, 4, 6);
+  }
+
+  // Wheels
+  ctx.fillStyle = "#0f172a";
+  const wheelR = 7;
+  const wheelY = y + h - wheelR;
+  const positions = [x + 18, x + w / 2, x + w - 18];
+  for (const wx2 of positions) {
+    ctx.beginPath();
+    ctx.arc(wx2, wheelY, wheelR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#475569";
+    ctx.beginPath();
+    ctx.arc(wx2, wheelY, wheelR - 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#0f172a";
+  }
+
+  // Stripe
+  ctx.fillStyle = "rgba(255,255,255,0.65)";
+  ctx.fillRect(x + 6, y + h - 16, w - 12, 2);
+}
+
+function roundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number, r: number
+) {
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.lineTo(x + w - rr, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+  ctx.lineTo(x + w, y + h - rr);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+  ctx.lineTo(x + rr, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
+  ctx.lineTo(x, y + rr);
+  ctx.quadraticCurveTo(x, y, x + rr, y);
+  ctx.closePath();
+}
+
+function shade(hex: string, amt: number): string {
+  const c = hex.replace("#", "");
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  const adj = (v: number) => Math.max(0, Math.min(255, Math.round(v + 255 * amt)));
+  return `rgb(${adj(r)},${adj(g)},${adj(b)})`;
+}
+
+// ──────────────────────────────────────────────────────────────
+// Decorations
+// ──────────────────────────────────────────────────────────────
+function drawDecoration(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number,
+  type: Decoration["type"],
+  scale: number,
+  theme: LevelTheme
+) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  switch (type) {
+    case "lamp": {
+      // Lamp post
+      ctx.fillStyle = "#1f2937";
+      ctx.fillRect(-2, -42, 4, 42);
+      ctx.fillRect(-8, -42, 16, 4);
+      // Bulb
+      ctx.fillStyle = "#fde047";
+      ctx.shadowColor = "#fde047";
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(0, -48, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      break;
+    }
+    case "tree": {
+      // Trunk
+      ctx.fillStyle = "#78350f";
+      ctx.fillRect(-3, -28, 6, 28);
+      // Foliage circles
+      ctx.fillStyle = "#16a34a";
+      ctx.beginPath();
+      ctx.arc(0, -38, 14, 0, Math.PI * 2);
+      ctx.arc(-10, -32, 10, 0, Math.PI * 2);
+      ctx.arc(10, -32, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#22c55e";
+      ctx.beginPath();
+      ctx.arc(-3, -42, 6, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case "bench": {
+      ctx.fillStyle = "#78350f";
+      ctx.fillRect(-16, -14, 32, 4);
+      ctx.fillStyle = "#1f2937";
+      ctx.fillRect(-14, -10, 3, 10);
+      ctx.fillRect(11, -10, 3, 10);
+      break;
+    }
+    case "sign": {
+      ctx.fillStyle = "#1f2937";
+      ctx.fillRect(-1, -36, 2, 36);
+      ctx.fillStyle = "#16a34a";
+      ctx.fillRect(-14, -38, 28, 12);
+      ctx.fillStyle = "#ffffff";
+      // "M" for métro
+      ctx.fillRect(-9, -36, 2, 8);
+      ctx.fillRect(-3, -36, 2, 8);
+      ctx.fillRect(3, -36, 2, 8);
+      ctx.fillRect(-7, -34, 8, 2);
+      break;
+    }
+    case "tower": {
+      // Mini Eiffel silhouette
+      ctx.fillStyle = "rgba(31,41,55,0.85)";
+      // Base wide → narrow top
+      ctx.beginPath();
+      ctx.moveTo(-40, 0);
+      ctx.lineTo(-5, -160);
+      ctx.lineTo(5, -160);
+      ctx.lineTo(40, 0);
+      ctx.closePath();
+      ctx.fill();
+      // Mid section
+      ctx.fillStyle = "rgba(15,23,42,0.5)";
+      ctx.fillRect(-22, -60, 44, 4);
+      ctx.fillRect(-30, -30, 60, 4);
+      // Antenna
+      ctx.fillStyle = "rgba(31,41,55,0.85)";
+      ctx.fillRect(-1, -180, 2, 20);
+      break;
+    }
+    case "cloud": {
+      ctx.fillStyle = theme === "night" ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.85)";
+      ctx.beginPath();
+      ctx.arc(0, 0, 14, 0, Math.PI * 2);
+      ctx.arc(14, 2, 12, 0, Math.PI * 2);
+      ctx.arc(-14, 4, 10, 0, Math.PI * 2);
+      ctx.arc(6, -6, 10, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case "moon": {
+      ctx.fillStyle = "#fef3c7";
+      ctx.shadowColor = "#fef3c7";
+      ctx.shadowBlur = 25;
+      ctx.beginPath();
+      ctx.arc(0, 0, 22, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "rgba(0,0,0,0.1)";
+      ctx.beginPath();
+      ctx.arc(-4, -4, 4, 0, Math.PI * 2);
+      ctx.arc(6, 2, 3, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case "building": {
+      const colors =
+        theme === "night"
+          ? ["#0f172a", "#1e293b", "#334155"]
+          : theme === "rooftops"
+          ? ["#92400e", "#b45309", "#7c2d12"]
+          : theme === "metro"
+          ? ["#1f2937", "#374151", "#4b5563"]
+          : ["#475569", "#64748b", "#94a3b8"];
+      const c = colors[Math.abs(Math.round(x)) % colors.length];
+      const bw = 60, bh = 140 + (Math.abs(Math.round(x)) % 120);
+      ctx.fillStyle = c;
+      ctx.fillRect(-bw / 2, -bh, bw, bh);
+      // Windows
+      ctx.fillStyle = theme === "night" ? "#fde68a" : "rgba(255,255,255,0.45)";
+      for (let wy = -bh + 12; wy < -10; wy += 18) {
+        for (let wx = -bw / 2 + 6; wx < bw / 2 - 6; wx += 14) {
+          if ((wx + wy) % 3 === 0) continue;
+          ctx.fillRect(wx, wy, 6, 8);
+        }
+      }
+      // Roof
+      ctx.fillStyle = "rgba(0,0,0,0.5)";
+      ctx.fillRect(-bw / 2 - 2, -bh - 4, bw + 4, 4);
+      break;
+    }
+  }
+
+  ctx.restore();
+}
 
 function drawCharacter(
   ctx: CanvasRenderingContext2D,
@@ -125,20 +545,24 @@ export default function Game() {
     if (!player) return;
     
     const totalP = getTotalParcours(level);
-    const platforms = generateLevel(level, parcours);
+    const gen = generateLevel(level, parcours);
     
     gameStateRef.current = {
       player: {
         x: 100,
         y: 400,
         w: 30,
-        h: 30,
+        h: 32,
         vx: 0,
         vy: 0,
         color: player.color,
         isGrounded: false
       },
-      platforms,
+      platforms: gen.platforms,
+      trains: gen.trains.map(t => ({ ...t })), // clone so resets are clean
+      decorations: gen.decorations,
+      worldEnd: gen.worldEnd,
+      theme: gen.theme,
       level,
       parcours,
       totalParcours: totalP,
@@ -182,7 +606,7 @@ export default function Game() {
 
     p.x += p.vx;
     
-    // Horizontal collision
+    // Horizontal collision (platforms)
     let playerRectX: Rect = { x: p.x, y: p.y, w: p.w, h: p.h };
     for (const plat of state.platforms) {
       if (checkCollision(playerRectX, plat)) {
@@ -203,7 +627,7 @@ export default function Game() {
     p.y += p.vy;
     p.isGrounded = false;
 
-    // Vertical collision
+    // Vertical collision (platforms)
     let playerRectY: Rect = { x: p.x, y: p.y, w: p.w, h: p.h };
     for (const plat of state.platforms) {
       if (checkCollision(playerRectY, plat)) {
@@ -222,6 +646,32 @@ export default function Game() {
             p.y = plat.y + plat.h;
             p.vy = 0;
           }
+        }
+      }
+    }
+
+    // ── Trains: move and collide ─────────────────────────────
+    for (const tr of state.trains) {
+      tr.x += tr.vx;
+      // Loop train when it goes off track
+      if (tr.vx > 0 && tr.x > tr.endX) tr.x = tr.spawnX;
+      if (tr.vx < 0 && tr.x < tr.endX) tr.x = tr.spawnX;
+
+      const trainRect: Rect = { x: tr.x, y: tr.y, w: tr.w, h: tr.h };
+      if (checkCollision({ x: p.x, y: p.y, w: p.w, h: p.h }, trainRect)) {
+        // If player is landing on top → safe ride
+        const playerBottom = p.y + p.h;
+        const landedOnTop =
+          p.vy >= 0 && playerBottom - tr.y < 14;
+        if (landedOnTop) {
+          p.y = tr.y - p.h;
+          p.vy = 0;
+          p.isGrounded = true;
+          // Carry player along with the train
+          p.x += tr.vx;
+        } else {
+          die();
+          return;
         }
       }
     }
@@ -295,33 +745,43 @@ export default function Game() {
     // Camera follow player
     const camX = Math.max(0, state.player.x - canvas.width / 3);
 
-    ctx.fillStyle = "#09090b"; // dark bg
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // ── Sky gradient (themed) ───────────────────────────────
+    drawSky(ctx, canvas.width, canvas.height, state.theme, state.time);
 
     ctx.save();
     ctx.translate(-camX, 0);
 
-    // Draw platforms
-    for (const plat of state.platforms) {
-      if (plat.type === "lava") {
-        ctx.fillStyle = "#ef4444"; // red
-      } else if (plat.type === "goal") {
-        ctx.fillStyle = "#eab308"; // yellow
-      } else {
-        ctx.fillStyle = "#27272a"; // gray border
-        ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
-        ctx.fillStyle = "#3f3f46"; // slightly lighter inside
-        ctx.fillRect(plat.x + 2, plat.y + 2, plat.w - 4, plat.h - 4);
-        continue;
-      }
-      ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
+    // ── Background decorations (parallax > 0) ───────────────
+    for (const d of state.decorations) {
+      if (d.parallax === 0) continue;
+      // Apply parallax: shift back toward camera
+      const px = d.x + camX * d.parallax;
+      drawDecoration(ctx, px, d.y, d.type, d.scale, state.theme);
     }
 
-    // Draw player
+    // Distant ground band
+    drawGroundBand(ctx, camX, canvas.width, state.theme);
+
+    // ── Platforms ───────────────────────────────────────────
+    for (const plat of state.platforms) {
+      drawPlatform(ctx, plat, state.theme);
+    }
+
+    // ── Trains ──────────────────────────────────────────────
+    for (const tr of state.trains) {
+      drawTrain(ctx, tr.x, tr.y, tr.w, tr.h, tr.color, tr.vx >= 0);
+    }
+
+    // ── Foreground decorations (parallax 0) ─────────────────
+    for (const d of state.decorations) {
+      if (d.parallax !== 0) continue;
+      drawDecoration(ctx, d.x, d.y, d.type, d.scale, state.theme);
+    }
+
+    // ── Player ──────────────────────────────────────────────
     if (state.status !== "dead") {
       drawCharacter(ctx, state.player.x, state.player.y, state.player.w, state.player.h, state.player.color, state.player.vx >= 0);
     } else {
-      // Death particles
       ctx.fillStyle = state.player.color;
       ctx.fillRect(state.player.x - 10, state.player.y - 10, 10, 10);
       ctx.fillRect(state.player.x + 30, state.player.y - 5, 10, 10);
