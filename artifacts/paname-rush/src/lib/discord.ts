@@ -1,13 +1,26 @@
 import { DiscordSDK } from "@discord/embedded-app-sdk";
 
-export const DISCORD_CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID as string | undefined;
+const ENV_CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID as string | undefined;
+let _runtimeClientId: string | null = null;
+
+async function fetchRuntimeClientId(): Promise<string | null> {
+  if (_runtimeClientId !== null) return _runtimeClientId || null;
+  try {
+    const baseUrl = import.meta.env.BASE_URL ?? "/";
+    const res = await fetch(`${baseUrl}api/discord/config`);
+    if (!res.ok) return null;
+    const data = (await res.json()) as { clientId?: string };
+    _runtimeClientId = data.clientId ?? "";
+    return _runtimeClientId || null;
+  } catch {
+    return null;
+  }
+}
 
 export function isInsideDiscord(): boolean {
   return (
-    DISCORD_CLIENT_ID != null &&
-    DISCORD_CLIENT_ID !== "" &&
-    (window.location.search.includes("frame_id=") ||
-      (!!window.parent && window.parent !== window))
+    window.location.search.includes("frame_id=") ||
+    (!!window.parent && window.parent !== window)
   );
 }
 
@@ -18,20 +31,21 @@ let _auth: {
 } | null = null;
 
 export async function initDiscordSDK() {
-  if (!DISCORD_CLIENT_ID) {
-    console.warn("[Discord] VITE_DISCORD_CLIENT_ID not set — running without Discord");
+  const clientId = ENV_CLIENT_ID || (await fetchRuntimeClientId());
+  if (!clientId) {
+    console.warn("[Discord] DISCORD_CLIENT_ID not configured — running without Discord");
     return null;
   }
 
   if (_auth) return _auth;
 
-  const sdk = new DiscordSDK(DISCORD_CLIENT_ID);
+  const sdk = new DiscordSDK(clientId);
   _sdk = sdk;
 
   await sdk.ready();
 
   const { code } = await sdk.commands.authorize({
-    client_id: DISCORD_CLIENT_ID,
+    client_id: clientId,
     response_type: "code",
     state: "",
     prompt: "none",

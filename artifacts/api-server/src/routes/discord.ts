@@ -2,6 +2,11 @@ import { Router } from "express";
 
 const discordRouter = Router();
 
+discordRouter.get("/discord/config", (_req, res) => {
+  const clientId = process.env["DISCORD_CLIENT_ID"] ?? "";
+  res.json({ clientId });
+});
+
 discordRouter.post("/discord/token", async (req, res) => {
   const clientId = process.env["DISCORD_CLIENT_ID"];
   const clientSecret = process.env["DISCORD_CLIENT_SECRET"];
