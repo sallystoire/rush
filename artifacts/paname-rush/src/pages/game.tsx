@@ -428,10 +428,56 @@ export default function Game() {
         </div>
       </div>
       
-      {/* Mobile Controls Guide */}
-      <div className="p-4 flex justify-center gap-8 border-t-4 border-border bg-card pixel-text text-xs text-muted-foreground">
+      {/* Desktop Controls Guide */}
+      <div className="p-4 hidden md:flex justify-center gap-8 border-t-4 border-border bg-card pixel-text text-xs text-muted-foreground">
         <div className="flex items-center gap-2"><div className="p-2 border-2 border-border rounded bg-background">← → / A D</div> BOUGER</div>
         <div className="flex items-center gap-2"><div className="p-2 border-2 border-border rounded bg-background">↑ / W / ESPACE</div> SAUTER</div>
+      </div>
+
+      {/* Mobile Touch Controls */}
+      <div className="md:hidden flex justify-between items-end p-4 border-t-4 border-border bg-card select-none touch-none">
+        <div className="flex gap-3">
+          <button
+            type="button"
+            aria-label="Gauche"
+            className="w-20 h-20 border-4 border-border rounded-full bg-background active:bg-primary/40 flex items-center justify-center pixel-text text-3xl text-white shadow-lg"
+            onTouchStart={(e) => { e.preventDefault(); keysRef.current["ArrowLeft"] = true; }}
+            onTouchEnd={(e) => { e.preventDefault(); keysRef.current["ArrowLeft"] = false; }}
+            onTouchCancel={(e) => { e.preventDefault(); keysRef.current["ArrowLeft"] = false; }}
+            onMouseDown={(e) => { e.preventDefault(); keysRef.current["ArrowLeft"] = true; }}
+            onMouseUp={(e) => { e.preventDefault(); keysRef.current["ArrowLeft"] = false; }}
+            onMouseLeave={() => { keysRef.current["ArrowLeft"] = false; }}
+          >
+            ←
+          </button>
+          <button
+            type="button"
+            aria-label="Droite"
+            className="w-20 h-20 border-4 border-border rounded-full bg-background active:bg-primary/40 flex items-center justify-center pixel-text text-3xl text-white shadow-lg"
+            onTouchStart={(e) => { e.preventDefault(); keysRef.current["ArrowRight"] = true; }}
+            onTouchEnd={(e) => { e.preventDefault(); keysRef.current["ArrowRight"] = false; }}
+            onTouchCancel={(e) => { e.preventDefault(); keysRef.current["ArrowRight"] = false; }}
+            onMouseDown={(e) => { e.preventDefault(); keysRef.current["ArrowRight"] = true; }}
+            onMouseUp={(e) => { e.preventDefault(); keysRef.current["ArrowRight"] = false; }}
+            onMouseLeave={() => { keysRef.current["ArrowRight"] = false; }}
+          >
+            →
+          </button>
+        </div>
+
+        <button
+          type="button"
+          aria-label="Sauter"
+          className="w-24 h-24 border-4 border-primary rounded-full bg-primary/20 active:bg-primary/60 flex items-center justify-center pixel-text text-sm text-primary shadow-lg drop-shadow-[0_0_8px_rgba(255,0,85,0.5)]"
+          onTouchStart={(e) => { e.preventDefault(); keysRef.current[" "] = true; }}
+          onTouchEnd={(e) => { e.preventDefault(); keysRef.current[" "] = false; }}
+          onTouchCancel={(e) => { e.preventDefault(); keysRef.current[" "] = false; }}
+          onMouseDown={(e) => { e.preventDefault(); keysRef.current[" "] = true; }}
+          onMouseUp={(e) => { e.preventDefault(); keysRef.current[" "] = false; }}
+          onMouseLeave={() => { keysRef.current[" "] = false; }}
+        >
+          SAUTER
+        </button>
       </div>
     </div>
   );
