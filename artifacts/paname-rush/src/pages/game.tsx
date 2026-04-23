@@ -593,6 +593,11 @@ export default function Game() {
     }));
   }, [player]);
 
+  // Refs to always hold the latest win/die so the rAF loop (with empty deps)
+  // doesn't capture a stale version where sessionId/player are still null.
+  const winRef = useRef<() => void>(() => {});
+  const dieRef = useRef<() => void>(() => {});
+
   // Game Loop
   const update = useCallback(() => {
     const state = gameStateRef.current;
@@ -625,10 +630,10 @@ export default function Game() {
     for (const plat of state.platforms) {
       if (checkCollision(playerRectX, plat)) {
         if (plat.type === "lava") {
-          die();
+          dieRef.current();
           return;
         } else if (plat.type === "goal") {
-          win();
+          winRef.current();
           return;
         } else {
           if (p.vx > 0) p.x = plat.x - p.w;
@@ -646,10 +651,10 @@ export default function Game() {
     for (const plat of state.platforms) {
       if (checkCollision(playerRectY, plat)) {
         if (plat.type === "lava") {
-          die();
+          dieRef.current();
           return;
         } else if (plat.type === "goal") {
-          win();
+          winRef.current();
           return;
         } else {
           if (p.vy > 0) {
@@ -684,7 +689,7 @@ export default function Game() {
       // Collision (deadly always — you cannot stand on a flying plate)
       const cRect: Rect = { x: c.x + 6, y: c.y + 6, w: c.w - 12, h: c.h - 12 };
       if (checkCollision({ x: p.x, y: p.y, w: p.w, h: p.h }, cRect)) {
-        die();
+        dieRef.current();
         return;
       }
     }
@@ -709,7 +714,7 @@ export default function Game() {
           // Carry player along with the train
           p.x += tr.vx;
         } else {
-          die();
+          dieRef.current();
           return;
         }
       }
@@ -781,6 +786,10 @@ export default function Game() {
     const state = gameStateRef.current;
     initLevel(state.level + 1, 1);
   }, [initLevel]);
+
+  // Keep refs in sync with the latest callbacks so the rAF loop sees fresh state
+  useEffect(() => { winRef.current = win; }, [win]);
+  useEffect(() => { dieRef.current = die; }, [die]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;

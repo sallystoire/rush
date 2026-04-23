@@ -8,8 +8,8 @@ import { useCreatePlayer } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useDiscord } from "@/hooks/use-discord";
 const logoImg = `${import.meta.env.BASE_URL}images/logo.png`;
-const jouerImg = `${import.meta.env.BASE_URL}images/jouer.jpeg`;
-const creditsImg = `${import.meta.env.BASE_URL}images/credits.jpeg`;
+const jouerImg = `${import.meta.env.BASE_URL}images/jouer.png`;
+const creditsImg = `${import.meta.env.BASE_URL}images/credits.png`;
 
 const COLORS = ["#ff0055", "#00f0ff", "#00ffaa", "#ffea00", "#ffaa00", "#aa00ff"];
 
