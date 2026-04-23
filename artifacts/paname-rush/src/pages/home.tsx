@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { useCreatePlayer } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useDiscord } from "@/hooks/use-discord";
-import logoImg from "@assets/IMG_6456_1776978506999.png";
-import jouerImg from "@assets/IMG_6457_1776978546497.jpeg";
-import creditsImg from "@assets/IMG_6457_1776978551196.jpeg";
+const logoImg = `${import.meta.env.BASE_URL}images/logo.png`;
+const jouerImg = `${import.meta.env.BASE_URL}images/jouer.jpeg`;
+const creditsImg = `${import.meta.env.BASE_URL}images/credits.jpeg`;
 
 const COLORS = ["#ff0055", "#00f0ff", "#00ffaa", "#ffea00", "#ffaa00", "#aa00ff"];
 

@@ -9,12 +9,13 @@ import {
   checkCollision, GRAVITY, JUMP_FORCE, MOVE_SPEED, MAX_FALL_SPEED,
   type GameState, type Rect, type Platform, type Decoration, type LevelTheme
 } from "@/lib/game-engine";
-import croustyImgUrl from "@assets/IMG_6460_1776978571525.png";
 import { 
   useStartGame, 
   useCompleteLevel, 
   useUpdatePlayerProgress
 } from "@workspace/api-client-react";
+
+const croustyImgUrl = `${import.meta.env.BASE_URL}images/crousty.png`;
 
 // ──────────────────────────────────────────────────────────────
 // Themed sky / background
