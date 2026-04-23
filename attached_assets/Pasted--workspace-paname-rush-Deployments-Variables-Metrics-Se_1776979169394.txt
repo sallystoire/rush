@@ -1,0 +1,114 @@
+
+
+@workspace/paname-rush
+Deployments
+Variables
+Metrics
+Settings
+workspacepaname-rush-production.up.railway.app
+us-west2
+1 Replica
+
+HISTORY
+@workspace/paname-rush
+
+Failed
+Apr 23, 2026 at 11:13 PM
+Get Help
+Details Build Deploy HTTP Network Flow
+You reached the start of the range
+Apr 23, 2026 at 11:08 PM
+[snapshot] received sha256:7fc14a667faac4a42c791b22dd4a73bfeaf0419560befe3fdb19ccd49046beda md5:e308cd041429975de12a374147038e70
+receiving snapshot
+12.1 MB
+988ms
+found 'Dockerfile' at 'Dockerfile'
+found 'railway.toml' at 'railway.toml'
+analyzing snapshot
+12.1 MB
+60ms
+uploading snapshot
+12.1 MB
+292ms
+fetched snapshot sha256:45caaa131088636fe4f27c696b880f5e69a9f31bb1e645e71e263e75ad922878 (4.3 MB bytes)
+fetching snapshot
+4.1 MB
+241ms
+modified file: artifacts/paname-rush/public/opengraph.jpg (27838b -> 58433b)
+unpacking archive
+13.2 MB
+76ms
+
+internal
+load build definition from Dockerfile
+0ms
+
+internal
+load metadata for docker.io/library/node:22-slim
+452ms
+scheduling build on Metal builder "builder-debrnq"
+
+internal
+load .dockerignore
+0ms
+
+internal
+load build context
+1ms
+
+base
+FROM docker.io/library/node:22-slim@sha256:d415caac2f1f77b98caaf9415c5f807e14bc8d7bdea62561ea2fef4fbd08a73c
+50ms
+
+base
+WORKDIR /app cached
+0ms
+
+base
+RUN corepack enable && corepack prepare pnpm@latest --activate cached
+0ms
+
+deps
+RUN pnpm install --frozen-lockfile cached
+0ms
+
+deps
+COPY artifacts/mockup-sandbox/package.json artifacts/mockup-sandbox/ cached
+0ms
+
+deps
+COPY artifacts/api-server/package.json    artifacts/api-server/ cached
+0ms
+
+deps
+COPY lib/db/package.json                  lib/db/ cached
+0ms
+
+deps
+COPY lib/api-zod/package.json             lib/api-zod/ cached
+0ms
+
+deps
+COPY lib/api-client-react/package.json     lib/api-client-react/ cached
+0ms
+
+deps
+COPY lib/api-spec/package.json             lib/api-spec/ cached
+0ms
+
+deps
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./ cached
+0ms
+
+deps
+COPY artifacts/paname-rush/package.json   artifacts/paname-rush/ cached
+0ms
+
+builder
+COPY . .
+1s
+
+builder
+RUN pnpm run build:railway
+3s
+> 
