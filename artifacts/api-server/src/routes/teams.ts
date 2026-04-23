@@ -73,6 +73,12 @@ router.post("/teams", async (req, res) => {
     return;
   }
 
+  // Prevent creating a team if already in one
+  if (captain.teamId !== null) {
+    res.status(409).json({ error: "Tu es déjà dans une team. Quitte-la d'abord." });
+    return;
+  }
+
   const existing = await db.select().from(teamsTable).where(eq(teamsTable.name, name)).limit(1);
   if (existing.length > 0) {
     res.status(409).json({ error: "Ce nom de team est deja pris" });
@@ -124,6 +130,23 @@ router.put("/teams/:teamId", async (req, res) => {
   const updateData: Record<string, unknown> = {};
   if (bodyParsed.data.maxMembers !== undefined) updateData.maxMembers = bodyParsed.data.maxMembers;
   if (bodyParsed.data.minLevelRequired !== undefined) updateData.minLevelRequired = bodyParsed.data.minLevelRequired;
+  // Also support name change sent directly in body (not in OpenAPI spec but handled here)
+  const rawBody = req.body as { name?: string; captainId?: number };
+  if (rawBody.name && typeof rawBody.name === "string") {
+    // Check uniqueness
+    const existing = await db.select().from(teamsTable).where(eq(teamsTable.name, rawBody.name)).limit(1);
+    if (existing.length > 0 && existing[0].id !== paramsParsed.data.teamId) {
+      res.status(409).json({ error: "Ce nom de team est déjà pris" });
+      return;
+    }
+    updateData.name = rawBody.name.trim();
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    const result = await getTeamWithMembers(paramsParsed.data.teamId);
+    res.json(result);
+    return;
+  }
 
   await db.update(teamsTable).set(updateData).where(eq(teamsTable.id, paramsParsed.data.teamId));
 
@@ -159,6 +182,12 @@ router.post("/teams/:teamId/join", async (req, res) => {
     return;
   }
 
+  // Prevent joining if already in a team
+  if (player.teamId !== null && player.teamId !== teamId) {
+    res.status(409).json({ error: "Tu es déjà dans une autre team." });
+    return;
+  }
+
   if ((player.level || 1) < team.minLevelRequired) {
     res.status(403).json({ error: `Niveau ${team.minLevelRequired} requis pour rejoindre` });
     return;
@@ -189,7 +218,28 @@ router.post("/teams/:teamId/leave", async (req, res) => {
     return;
   }
 
-  await db.update(playersTable).set({ teamId: null }).where(eq(playersTable.id, bodyParsed.data.playerId));
+  const teamId = paramsParsed.data.teamId;
+  const playerId = bodyParsed.data.playerId;
+
+  // If captain leaves, transfer to another member or delete team
+  const [team] = await db.select().from(teamsTable).where(eq(teamsTable.id, teamId)).limit(1);
+  if (team && team.captainId === playerId) {
+    const otherMembers = await db.select().from(playersTable)
+      .where(eq(playersTable.teamId, teamId));
+    const others = otherMembers.filter(m => m.id !== playerId);
+    if (others.length > 0) {
+      // Transfer to next member
+      await db.update(teamsTable).set({ captainId: others[0].id }).where(eq(teamsTable.id, teamId));
+    } else {
+      // Delete team (no members left)
+      await db.update(playersTable).set({ teamId: null }).where(eq(playersTable.id, playerId));
+      await db.delete(teamsTable).where(eq(teamsTable.id, teamId));
+      res.json({ success: true, teamDeleted: true });
+      return;
+    }
+  }
+
+  await db.update(playersTable).set({ teamId: null }).where(eq(playersTable.id, playerId));
 
   res.json({ success: true });
 });

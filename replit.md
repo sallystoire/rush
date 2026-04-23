@@ -22,12 +22,17 @@ A 2D platformer game inspired by Together (Roblox) and Chained Together. Players
 ## Features
 
 - Main menu with Play and Credits
-- Game mode selection (Quick Play, Create Team, Join Team, Leaderboard, Code Boost)
+- Game mode selection: Quick Play, Team Management, Leaderboard, Code Boost
 - 2D platformer gameplay with physics (gravity, jumping, collision)
-- 100 levels with progressive difficulty
-- Team system (create at level 4+, join, team play)
+- 100 levels with progressive difficulty — progress saved cross-session
+- Team system (create at level 4+, join by search/level filter)
+- Full team management UI: kick, transfer ownership, rename, maxMembers, minLevel
+- Team lobby: PRÊT button, 2-player threshold, 20s countdown before game starts
+- Play invitations within team (notify all members)
+- Multiplayer death sync: if any teammate dies, all restart the parcours
 - Leaderboard (individual & team, top 50)
 - Boost code system (skip parcours/level)
+- Discord guild/channel validation (guild: 1489787998676713632)
 - Player persistence via localStorage + API
 
 ## Key Commands

@@ -6,6 +6,10 @@ import { StartGameBody, CompleteLevelParams, CompleteLevelBody } from "@workspac
 
 const router = Router();
 
+// ── In-memory team death events ───────────────────────────────
+// teamId → { playerId, timestamp }
+const teamDeaths = new Map<number, { playerId: number; timestamp: number }>();
+
 router.post("/game/start", async (req, res) => {
   const parsed = StartGameBody.safeParse(req.body);
   if (!parsed.success) {
@@ -15,11 +19,15 @@ router.post("/game/start", async (req, res) => {
 
   const { playerId, mode, teamId } = parsed.data;
 
+  // Resume at the player's current level (so progress persists across sessions)
+  const [player] = await db.select().from(playersTable).where(eq(playersTable.id, playerId)).limit(1);
+  const startLevel = (player?.level ?? 1);
+
   const [session] = await db.insert(gameSessionsTable).values({
     playerId,
     mode,
     teamId: teamId || null,
-    currentLevel: 1,
+    currentLevel: startLevel,
     status: "active",
   }).returning();
 
@@ -87,6 +95,31 @@ router.post("/game/:sessionId/complete", async (req, res) => {
   }
 
   res.json(updated);
+});
+
+// ── Team death notification ───────────────────────────────────
+// POST /game/team-death  { teamId, playerId }
+router.post("/game/team-death", (req, res) => {
+  const { teamId, playerId } = req.body as { teamId: number; playerId: number };
+  if (!teamId || !playerId) {
+    res.status(400).json({ error: "teamId and playerId required" });
+    return;
+  }
+  teamDeaths.set(teamId, { playerId, timestamp: Date.now() });
+  res.json({ ok: true });
+});
+
+// GET /game/team-state/:teamId?since=<timestamp>
+// Returns whether a death happened after the given timestamp
+router.get("/game/team-state/:teamId", (req, res) => {
+  const teamId = Number(req.params.teamId);
+  const since = Number(req.query.since ?? 0);
+  const death = teamDeaths.get(teamId);
+  if (death && death.timestamp > since) {
+    res.json({ died: true, playerId: death.playerId, timestamp: death.timestamp });
+  } else {
+    res.json({ died: false });
+  }
 });
 
 export default router;

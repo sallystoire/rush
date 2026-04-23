@@ -5,6 +5,7 @@ import { useDiscord } from "@/hooks/use-discord";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { notifyTeamDeath, getTeamState } from "@/lib/team-api";
 import { 
   generateLevel, getTotalParcours, getLevelName, isLaserActive,
   checkCollision, GRAVITY, JUMP_FORCE, MOVE_SPEED, MAX_FALL_SPEED,
@@ -536,6 +537,10 @@ export default function Game() {
   const [, setLocation] = useLocation();
   const searchString = useSearch();
   const isTeamMode = searchString.includes("mode=team");
+  const urlTeamId = (() => {
+    const m = searchString.match(/teamId=(\d+)/);
+    return m ? Number(m[1]) : null;
+  })();
   
   const { player, setPlayer } = useAuth();
   const { toast } = useToast();
@@ -553,6 +558,10 @@ export default function Game() {
   
   const gameStateRef = useRef<GameState | null>(null);
   const sessionStartedRef = useRef(false);
+
+  // Team death sync — timestamp of when we started playing this session
+  const teamDeathSinceRef = useRef<number>(Date.now());
+  const teamDeathPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   const keysRef = useRef<{ [key: string]: boolean }>({});
   
@@ -586,6 +595,38 @@ export default function Game() {
     }
     setVoiceError(null);
   }, [insideDiscord, discordReady, guildId, channelId]);
+
+  // Team death sync — poll for teammate deaths in team mode
+  useEffect(() => {
+    if (!isTeamMode || !urlTeamId) return;
+    teamDeathSinceRef.current = Date.now();
+
+    teamDeathPollRef.current = setInterval(async () => {
+      const state = gameStateRef.current;
+      if (!state || state.status !== "playing") return;
+      try {
+        const result = await getTeamState(urlTeamId, teamDeathSinceRef.current);
+        if (result.died && result.playerId !== player?.id) {
+          // A teammate died — restart current parcours
+          teamDeathSinceRef.current = result.timestamp ?? Date.now();
+          state.status = "dead";
+          setUiState(s => ({ ...s, status: "dead", attempts: s.attempts + 1 }));
+          setTimeout(() => {
+            if (gameStateRef.current) {
+              initLevel(gameStateRef.current.level, gameStateRef.current.parcours);
+            }
+          }, 1200);
+        }
+      } catch {
+        // ignore poll errors
+      }
+    }, 2000);
+
+    return () => {
+      if (teamDeathPollRef.current) clearInterval(teamDeathPollRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTeamMode, urlTeamId]);
 
   // Init game — runs only once. Using player as dep so it waits for auth to resolve,
   // but the sessionStartedRef guard prevents re-running when player updates mid-game
@@ -811,6 +852,11 @@ export default function Game() {
       navigator.vibrate([60, 40, 120]);
     }
 
+    // Notify team of death in team mode
+    if (isTeamMode && urlTeamId && player) {
+      notifyTeamDeath(urlTeamId, player.id).catch(() => {});
+    }
+
     // Levels 90-100: restart entire level
     if (state.level >= 90) {
       state.status = "dead";
@@ -823,7 +869,7 @@ export default function Game() {
       setUiState(s => ({ ...s, status: "dead", attempts: s.attempts + 1 }));
       setTimeout(() => initLevel(state.level, state.parcours), 1000);
     }
-  }, [initLevel]);
+  }, [initLevel, isTeamMode, urlTeamId, player]);
 
   const win = useCallback(() => {
     if (!gameStateRef.current || !player || !sessionId) return;
