@@ -56,6 +56,7 @@ export interface GameState {
   };
   platforms: Platform[];
   trains: Train[];
+  croustys: Crousty[];
   decorations: Decoration[];
   level: number;
   parcours: number;
@@ -67,6 +68,30 @@ export interface GameState {
 }
 
 export type LevelTheme = "metro" | "rooftops" | "boulevard" | "night";
+
+// Named levels — falls back to "Niveau N" for any unnamed level
+export const LEVEL_NAMES: Record<number, string> = {
+  1: "RER A",
+  2: "CroustyAttack",
+};
+
+export function getLevelName(level: number): string {
+  return LEVEL_NAMES[level] ?? `Niveau ${level}`;
+}
+
+export interface Crousty {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  vx: number;
+  vy: number;       // for arcing/bouncing
+  baseY: number;    // ground reference
+  spawnX: number;
+  endX: number;
+  rotation: number; // current rotation in radians
+  spin: number;     // rotation speed
+}
 
 export const GRAVITY = 0.6;
 export const JUMP_FORCE = -12;
@@ -110,6 +135,7 @@ export function getTotalParcours(level: number) {
 interface GeneratedLevel {
   platforms: Platform[];
   trains: Train[];
+  croustys: Crousty[];
   decorations: Decoration[];
   worldEnd: number;
   theme: LevelTheme;
@@ -122,7 +148,11 @@ export function generateLevel(level: number, parcoursIndex: number): GeneratedLe
 
   const platforms: Platform[] = [];
   const trains: Train[] = [];
+  const croustys: Crousty[] = [];
   const decorations: Decoration[] = [];
+
+  // Some levels use food-projectile obstacles instead of trains
+  const isCroustyLevel = level === 2;
 
   const difficulty = Math.min(level / 10, 10); // 0 to 10
   const groundY = 540;
@@ -148,43 +178,79 @@ export function generateLevel(level: number, parcoursIndex: number): GeneratedLe
     const useFloating = !useTrain && r < 0.65;
 
     if (useTrain) {
-      // Train segment: rails on the ground with a gap, train moves over them
-      const railLen = 280 + rng() * 120;
+      // Hazard segment: ground stretch with either trains (default) or croustys
+      const stretchLen = 280 + rng() * 120;
       const gapAfter = 80 + rng() * 40;
 
-      // Rails are walkable but flush with ground
-      platforms.push({
-        x: currentX,
-        y: groundY,
-        w: railLen,
-        h: 60,
-        type: "rail",
-      });
+      if (isCroustyLevel) {
+        // Plain ground here so player can run through
+        platforms.push({
+          x: currentX,
+          y: groundY,
+          w: stretchLen,
+          h: 60,
+          type: startType,
+        });
 
-      // Train: tall enough that you must jump over it
-      const trainH = 70;
-      const trainW = 130 + rng() * 60;
-      const trainY = groundY - trainH; // sits ON the rails
-      const speed = 2.5 + difficulty * 0.25 + rng() * 1.5;
-      // Half spawn from the right (-vx), half from the left (+vx)
-      const fromRight = rng() < 0.5;
-      const palette = ["#fbbf24", "#22d3ee", "#f87171", "#a78bfa", "#34d399"];
-      trains.push({
-        x: fromRight ? currentX + railLen : currentX - trainW,
-        y: trainY,
-        w: trainW,
-        h: trainH,
-        vx: fromRight ? -speed : speed,
-        spawnX: fromRight ? currentX + railLen : currentX - trainW,
-        endX: fromRight ? currentX - trainW - 60 : currentX + railLen + 60,
-        color: palette[Math.floor(rng() * palette.length)],
-      });
+        // Spawn 1-3 flying croustys arcing across the lane
+        const numCroustys = 1 + Math.floor(rng() * 3);
+        for (let cIx = 0; cIx < numCroustys; cIx++) {
+          const cw = 70 + rng() * 30;
+          const ch = 50 + rng() * 20;
+          const fromRight = rng() < 0.5;
+          const speed = 3 + difficulty * 0.3 + rng() * 1.5;
+          const startXc = fromRight ? currentX + stretchLen + 40 : currentX - cw - 40;
+          const endXc   = fromRight ? currentX - cw - 80     : currentX + stretchLen + 80;
+          croustys.push({
+            x: startXc,
+            y: groundY - ch - 60 - rng() * 80,
+            w: cw,
+            h: ch,
+            vx: fromRight ? -speed : speed,
+            vy: -2 - rng() * 2,
+            baseY: groundY - ch - 80,
+            spawnX: startXc,
+            endX: endXc,
+            rotation: rng() * Math.PI * 2,
+            spin: (rng() - 0.5) * 0.08,
+          });
+        }
 
-      // Decorate rails
-      decorations.push({ x: currentX + 20, y: groundY, type: "lamp", scale: 0.9, parallax: 0 });
-      decorations.push({ x: currentX + railLen - 30, y: groundY, type: "sign", scale: 0.9, parallax: 0 });
+        // Warning sign decoration
+        decorations.push({ x: currentX + 20, y: groundY, type: "sign", scale: 0.9, parallax: 0 });
+        decorations.push({ x: currentX + stretchLen - 30, y: groundY, type: "lamp", scale: 0.9, parallax: 0 });
+      } else {
+        // Rail + train segment
+        platforms.push({
+          x: currentX,
+          y: groundY,
+          w: stretchLen,
+          h: 60,
+          type: "rail",
+        });
 
-      currentX += railLen + gapAfter;
+        const trainH = 70;
+        const trainW = 130 + rng() * 60;
+        const trainY = groundY - trainH;
+        const speed = 2.5 + difficulty * 0.25 + rng() * 1.5;
+        const fromRight = rng() < 0.5;
+        const palette = ["#fbbf24", "#22d3ee", "#f87171", "#a78bfa", "#34d399"];
+        trains.push({
+          x: fromRight ? currentX + stretchLen : currentX - trainW,
+          y: trainY,
+          w: trainW,
+          h: trainH,
+          vx: fromRight ? -speed : speed,
+          spawnX: fromRight ? currentX + stretchLen : currentX - trainW,
+          endX: fromRight ? currentX - trainW - 60 : currentX + stretchLen + 60,
+          color: palette[Math.floor(rng() * palette.length)],
+        });
+
+        decorations.push({ x: currentX + 20, y: groundY, type: "lamp", scale: 0.9, parallax: 0 });
+        decorations.push({ x: currentX + stretchLen - 30, y: groundY, type: "sign", scale: 0.9, parallax: 0 });
+      }
+
+      currentX += stretchLen + gapAfter;
       currentY = groundY;
     } else if (useFloating) {
       // Floating platform with a gap
@@ -300,6 +366,7 @@ export function generateLevel(level: number, parcoursIndex: number): GeneratedLe
   return {
     platforms,
     trains,
+    croustys,
     decorations,
     worldEnd: goalX + 200,
     theme,

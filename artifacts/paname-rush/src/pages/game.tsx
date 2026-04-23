@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  generateLevel, getTotalParcours, 
+  generateLevel, getTotalParcours, getLevelName,
   checkCollision, GRAVITY, JUMP_FORCE, MOVE_SPEED, MAX_FALL_SPEED,
   type GameState, type Rect, type Platform, type Decoration, type LevelTheme
 } from "@/lib/game-engine";
+import croustyImgUrl from "@assets/IMG_6460_1776978571525.png";
 import { 
   useStartGame, 
   useCompleteLevel, 
@@ -518,6 +519,14 @@ export default function Game() {
     status: "loading" // loading, playing, dead, won_parcours, won_level
   });
 
+  // Preload crousty obstacle image
+  const croustyImgRef = useRef<HTMLImageElement | null>(null);
+  useEffect(() => {
+    const img = new Image();
+    img.src = croustyImgUrl;
+    img.onload = () => { croustyImgRef.current = img; };
+  }, []);
+
   // Init game
   useEffect(() => {
     if (!player) {
@@ -559,7 +568,8 @@ export default function Game() {
         isGrounded: false
       },
       platforms: gen.platforms,
-      trains: gen.trains.map(t => ({ ...t })), // clone so resets are clean
+      trains: gen.trains.map(t => ({ ...t })),
+      croustys: gen.croustys.map(c => ({ ...c })),
       decorations: gen.decorations,
       worldEnd: gen.worldEnd,
       theme: gen.theme,
@@ -647,6 +657,31 @@ export default function Game() {
             p.vy = 0;
           }
         }
+      }
+    }
+
+    // ── Croustys: arc through the air, deadly on contact ─────
+    for (const c of state.croustys) {
+      c.x += c.vx;
+      c.vy += 0.18;          // light gravity
+      c.y += c.vy;
+      c.rotation += c.spin;
+      // Bounce upward arc when reaching baseY-ish
+      if (c.y > c.baseY + 80) {
+        c.vy = -4 - Math.random() * 2;
+      }
+      // Loop back when off-track
+      const offEnd = c.vx > 0 ? c.x > c.endX : c.x < c.endX;
+      if (offEnd) {
+        c.x = c.spawnX;
+        c.y = c.baseY - 60 - Math.random() * 60;
+        c.vy = -2 - Math.random() * 2;
+      }
+      // Collision (deadly always — you cannot stand on a flying plate)
+      const cRect: Rect = { x: c.x + 6, y: c.y + 6, w: c.w - 12, h: c.h - 12 };
+      if (checkCollision({ x: p.x, y: p.y, w: p.w, h: p.h }, cRect)) {
+        die();
+        return;
       }
     }
 
@@ -772,6 +807,24 @@ export default function Game() {
       drawTrain(ctx, tr.x, tr.y, tr.w, tr.h, tr.color, tr.vx >= 0);
     }
 
+    // ── Croustys (food obstacles) ───────────────────────────
+    const croustyImg = croustyImgRef.current;
+    for (const c of state.croustys) {
+      if (croustyImg) {
+        ctx.save();
+        ctx.translate(c.x + c.w / 2, c.y + c.h / 2);
+        ctx.rotate(c.rotation);
+        ctx.shadowColor = "rgba(249, 115, 22, 0.7)";
+        ctx.shadowBlur = 12;
+        ctx.drawImage(croustyImg, -c.w / 2, -c.h / 2, c.w, c.h);
+        ctx.restore();
+      } else {
+        // Fallback: orange tray
+        ctx.fillStyle = "#f97316";
+        ctx.fillRect(c.x, c.y, c.w, c.h);
+      }
+    }
+
     // ── Foreground decorations (parallax 0) ─────────────────
     for (const d of state.decorations) {
       if (d.parallax !== 0) continue;
@@ -825,8 +878,10 @@ export default function Game() {
 
         <div className="flex items-center gap-8 pixel-text">
           <div className="flex items-center gap-3">
-            <div className="text-muted-foreground text-sm">NIVEAU</div>
-            <div className="text-2xl text-primary drop-shadow-[0_0_5px_rgba(255,0,85,0.5)]">{uiState.level}</div>
+            <div className="text-muted-foreground text-sm">NIVEAU {uiState.level}</div>
+            <div className="text-xl md:text-2xl text-primary drop-shadow-[0_0_5px_rgba(255,0,85,0.5)] truncate max-w-[160px]">
+              {getLevelName(uiState.level)}
+            </div>
           </div>
           
           <div className="h-8 w-px bg-border hidden md:block"></div>

@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { useCreatePlayer } from "@workspace/api-client-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useDiscord } from "@/hooks/use-discord";
+import logoImg from "@assets/IMG_6456_1776978506999.png";
+import jouerImg from "@assets/IMG_6457_1776978546497.jpeg";
+import creditsImg from "@assets/IMG_6457_1776978551196.jpeg";
 
 const COLORS = ["#ff0055", "#00f0ff", "#00ffaa", "#ffea00", "#ffaa00", "#aa00ff"];
 
@@ -25,7 +28,6 @@ export default function Home() {
   const { inside: insideDiscord, user: discordUser } = useDiscord();
   const createPlayer = useCreatePlayer();
 
-  // Auto-sync the Discord identity into our player record as soon as we have it.
   useEffect(() => {
     if (!insideDiscord || !discordUser) return;
     const desiredName = discordUser.global_name || discordUser.username;
@@ -54,7 +56,6 @@ export default function Home() {
       setLocation("/game-mode");
       return;
     }
-    // Inside Discord we wait for the auto-sync to finish instead of asking for a pseudo.
     if (insideDiscord) return;
     setShowLogin(true);
   };
@@ -75,91 +76,114 @@ export default function Home() {
     );
   };
 
-  const playButtonLabel = (() => {
-    if (insideDiscord && !player && (autoSyncing || createPlayer.isPending)) {
-      return "CONNEXION...";
-    }
-    return "JOUER";
-  })();
-
   const playDisabled = insideDiscord && !player && (autoSyncing || createPlayer.isPending);
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-background relative overflow-hidden">
-      {/* Background decoration */}
-      <div className="absolute inset-0 opacity-20 pointer-events-none">
-        <div className="absolute top-10 left-10 w-32 h-32 bg-primary rounded-lg rotate-12 blur-3xl"></div>
-        <div className="absolute bottom-10 right-10 w-40 h-40 bg-secondary rounded-lg -rotate-12 blur-3xl"></div>
+    <div
+      className="min-h-screen w-full flex flex-col items-center justify-center relative overflow-hidden"
+      style={{
+        background:
+          "radial-gradient(ellipse at 30% 40%, #4d6b1f 0%, #1f2b0a 55%, #0a0f04 100%)",
+      }}
+    >
+      {/* Splash decorations to match the graffiti style */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div
+          className="absolute -top-20 -left-20 w-96 h-96 rounded-full blur-3xl opacity-40"
+          style={{ background: "radial-gradient(circle, #84cc16 0%, transparent 70%)" }}
+        />
+        <div
+          className="absolute -bottom-32 -right-20 w-[500px] h-[500px] rounded-full blur-3xl opacity-40"
+          style={{ background: "radial-gradient(circle, #f97316 0%, transparent 70%)" }}
+        />
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full blur-3xl opacity-25"
+          style={{ background: "radial-gradient(circle, #facc15 0%, transparent 70%)" }}
+        />
       </div>
 
-      <div className="text-center z-10 flex flex-col items-center gap-12">
-        <div className="space-y-4">
-          <h1 className="text-6xl md:text-8xl font-bold pixel-text text-white drop-shadow-[0_0_10px_rgba(255,0,85,0.8)] tracking-tighter">
-            PANAME<br/><span className="text-primary">RUSH</span>
-          </h1>
-          <p className="text-muted-foreground text-xl tracking-widest uppercase">
-            La Course Ultime
-          </p>
-          {insideDiscord && player && (
-            <p className="text-sm text-secondary pixel-text">
-              Connecté en tant que {player.username}
-            </p>
-          )}
-        </div>
+      <div className="text-center z-10 flex flex-col items-center gap-8 px-6">
+        {/* Logo image instead of text */}
+        <img
+          src={logoImg}
+          alt="Paname Rush"
+          className="w-[80vw] max-w-[520px] drop-shadow-[0_0_25px_rgba(132,204,22,0.5)] animate-[float_3s_ease-in-out_infinite]"
+        />
 
-        <div className="flex flex-col gap-6 w-full max-w-xs">
-          <Button
-            size="lg"
-            className="w-full text-xl h-16 bg-primary hover:bg-primary/90 text-white border-4 border-primary-foreground pixel-text pixel-border shadow-[0_0_15px_rgba(255,0,85,0.5)] hover:shadow-[0_0_25px_rgba(255,0,85,0.8)] transition-all hover:scale-105"
+        {insideDiscord && player && (
+          <p className="text-sm text-lime-300 pixel-text">
+            Connecté en tant que {player.username}
+          </p>
+        )}
+
+        <div className="flex flex-col gap-4 w-full max-w-sm items-center">
+          <button
+            type="button"
             onClick={handlePlay}
             disabled={playDisabled}
+            className="transition-transform hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
+            aria-label="Jouer"
           >
-            {playButtonLabel}
-          </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            className="w-full text-lg h-14 border-2 border-muted-foreground text-muted-foreground hover:text-white hover:border-white transition-all pixel-text"
+            <img src={jouerImg} alt="Jouer" className="w-72 drop-shadow-[0_5px_15px_rgba(0,0,0,0.6)]" />
+          </button>
+          <button
+            type="button"
             onClick={() => setShowCredits(true)}
+            className="transition-transform hover:scale-110 active:scale-95 focus:outline-none"
+            aria-label="Crédits"
           >
-            CREDITS
-          </Button>
+            <img src={creditsImg} alt="Crédits" className="w-56 drop-shadow-[0_5px_15px_rgba(0,0,0,0.6)]" />
+          </button>
         </div>
       </div>
 
+      <style>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-10px); }
+        }
+      `}</style>
+
       <Dialog open={showCredits} onOpenChange={setShowCredits}>
-        <DialogContent className="border-4 border-primary bg-background/95 backdrop-blur rounded-none">
+        <DialogContent className="border-4 border-orange-500 bg-background/95 backdrop-blur rounded-none">
           <DialogHeader>
-            <DialogTitle className="pixel-text text-xl text-center text-primary mb-4">CREDITS</DialogTitle>
-            <DialogDescription className="text-center text-lg text-foreground font-mono">
-              Cree et concu par Sally alias sallystoire pour le serveur discord.gg/paname avec amour !
-            </DialogDescription>
+            <DialogTitle className="pixel-text text-xl text-center text-orange-400 mb-4">
+              CRÉDITS
+            </DialogTitle>
+            <p className="text-center text-lg text-foreground font-mono px-2">
+              Créé et conçu par Sally alias <span className="text-lime-400">sallystoire</span> pour le serveur{" "}
+              <span className="text-orange-400">discord.gg/paname</span> avec amour !
+            </p>
           </DialogHeader>
         </DialogContent>
       </Dialog>
 
       {!insideDiscord && (
         <Dialog open={showLogin} onOpenChange={setShowLogin}>
-          <DialogContent className="border-4 border-secondary bg-background/95 backdrop-blur rounded-none">
+          <DialogContent className="border-4 border-lime-500 bg-background/95 backdrop-blur rounded-none">
             <DialogHeader>
-              <DialogTitle className="pixel-text text-xl text-center text-secondary mb-4">CHOISIS TON PSEUDO</DialogTitle>
+              <DialogTitle className="pixel-text text-xl text-center text-lime-400 mb-4">
+                CHOISIS TON PSEUDO
+              </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleLoginSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="username" className="sr-only">Pseudo</Label>
+                <Label htmlFor="username" className="sr-only">
+                  Pseudo
+                </Label>
                 <Input
                   id="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Entrez un pseudo..."
-                  className="h-12 text-lg border-2 border-secondary focus-visible:ring-secondary rounded-none font-mono"
+                  className="h-12 text-lg border-2 border-lime-500 focus-visible:ring-lime-500 rounded-none font-mono"
                   autoFocus
                   disabled={createPlayer.isPending}
                 />
               </div>
               <Button
                 type="submit"
-                className="w-full h-12 bg-secondary hover:bg-secondary/90 text-white rounded-none pixel-text border-2 border-secondary-foreground"
+                className="w-full h-12 bg-lime-500 hover:bg-lime-600 text-white rounded-none pixel-text border-2 border-lime-700"
                 disabled={createPlayer.isPending || !username.trim()}
               >
                 {createPlayer.isPending ? "CHARGEMENT..." : "VALIDER"}
