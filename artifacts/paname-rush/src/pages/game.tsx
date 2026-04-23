@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useLocation, useSearch, Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { useDiscord } from "@/hooks/use-discord";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -301,7 +302,8 @@ function drawDecoration(
   x: number, y: number,
   type: Decoration["type"],
   scale: number,
-  theme: LevelTheme
+  theme: LevelTheme,
+  seedX?: number
 ) {
   ctx.save();
   ctx.translate(x, y);
@@ -407,29 +409,66 @@ function drawDecoration(
       break;
     }
     case "building": {
-      const colors =
-        theme === "night"
-          ? ["#0f172a", "#1e293b", "#334155"]
-          : theme === "rooftops"
-          ? ["#92400e", "#b45309", "#7c2d12"]
-          : theme === "metro"
-          ? ["#1f2937", "#374151", "#4b5563"]
-          : ["#475569", "#64748b", "#94a3b8"];
-      const c = colors[Math.abs(Math.round(x)) % colors.length];
-      const bw = 60, bh = 140 + (Math.abs(Math.round(x)) % 120);
-      ctx.fillStyle = c;
+      // Use stable seedX so height never changes as camera scrolls
+      const stableX = Math.abs(Math.round(seedX ?? x));
+      const seed = stableX % 997;
+
+      // Geometry Dash / Subway Surfer: bold flat colors, neon outlines, sharp shapes
+      const palettes = {
+        night:    [["#0f0f23","#7c3aed"],["#0f172a","#06b6d4"],["#1e1b4b","#f472b6"]],
+        rooftops: [["#7c2d12","#f97316"],["#450a0a","#ef4444"],["#431407","#fb923c"]],
+        metro:    [["#1f2937","#00f0ff"],["#111827","#a855f7"],["#0f172a","#22d3ee"]],
+        boulevard:[["#1e293b","#facc15"],["#18181b","#4ade80"],["#27272a","#f472b6"]],
+      };
+      const pal = palettes[theme] ?? palettes.boulevard;
+      const [bodyColor, accentColor] = pal[seed % pal.length];
+
+      const bw = 56 + (seed % 3) * 12;
+      // Height fixed by seed, not by screen position
+      const bh = 130 + (seed % 7) * 22;
+      const floors = Math.max(2, Math.floor(bh / 38));
+
+      // Body fill
+      ctx.fillStyle = bodyColor;
       ctx.fillRect(-bw / 2, -bh, bw, bh);
-      // Windows
-      ctx.fillStyle = theme === "night" ? "#fde68a" : "rgba(255,255,255,0.45)";
-      for (let wy = -bh + 12; wy < -10; wy += 18) {
-        for (let wx = -bw / 2 + 6; wx < bw / 2 - 6; wx += 14) {
-          if ((wx + wy) % 3 === 0) continue;
-          ctx.fillRect(wx, wy, 6, 8);
+
+      // Neon outline (Geometry Dash style)
+      ctx.strokeStyle = accentColor;
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = accentColor;
+      ctx.shadowBlur = 8;
+      ctx.strokeRect(-bw / 2, -bh, bw, bh);
+      ctx.shadowBlur = 0;
+
+      // Floor dividers (horizontal lines)
+      ctx.fillStyle = accentColor;
+      ctx.globalAlpha = 0.25;
+      for (let f = 1; f < floors; f++) {
+        const lineY = -bh + f * (bh / floors);
+        ctx.fillRect(-bw / 2, lineY, bw, 2);
+      }
+      ctx.globalAlpha = 1;
+
+      // Windows: square Geometry Dash style, alternating lit/unlit
+      const winSize = 9;
+      const winGapX = 13;
+      const winGapY = bh / floors;
+      for (let f = 0; f < floors; f++) {
+        const wy = -bh + f * winGapY + winGapY * 0.3;
+        for (let col = 0; col < 2; col++) {
+          const wx = -bw / 2 + 9 + col * winGapX;
+          const lit = ((seed + f + col) % 3) !== 0;
+          ctx.fillStyle = lit ? accentColor : "rgba(255,255,255,0.06)";
+          ctx.shadowColor = lit ? accentColor : "transparent";
+          ctx.shadowBlur = lit ? 6 : 0;
+          ctx.fillRect(wx, wy, winSize, winSize);
+          ctx.shadowBlur = 0;
         }
       }
-      // Roof
-      ctx.fillStyle = "rgba(0,0,0,0.5)";
-      ctx.fillRect(-bw / 2 - 2, -bh - 4, bw + 4, 4);
+
+      // Rooftop accent stripe (Subway Surfer bold top)
+      ctx.fillStyle = accentColor;
+      ctx.fillRect(-bw / 2, -bh, bw, 4);
       break;
     }
   }
@@ -491,6 +530,8 @@ function drawCharacter(
   ctx.fillRect(facingRight ? headX + 1 : headX + headW - 3, headY + 1, 2, 2);
 }
 
+const REQUIRED_GUILD_ID = "1489787998676713632";
+
 export default function Game() {
   const [, setLocation] = useLocation();
   const searchString = useSearch();
@@ -498,6 +539,7 @@ export default function Game() {
   
   const { player, setPlayer } = useAuth();
   const { toast } = useToast();
+  const { inside: insideDiscord, ready: discordReady, guildId, channelId } = useDiscord();
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>(0);
@@ -507,6 +549,7 @@ export default function Game() {
   const updateProgress = useUpdatePlayerProgress();
   
   const [sessionId, setSessionId] = useState<number | null>(null);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   
   const gameStateRef = useRef<GameState | null>(null);
   
@@ -529,12 +572,27 @@ export default function Game() {
     img.onload = () => { croustyImgRef.current = img; };
   }, []);
 
+  // Voice channel check — only enforce inside Discord
+  useEffect(() => {
+    if (!insideDiscord || !discordReady) return;
+    if (!channelId) {
+      setVoiceError("Tu dois être dans un salon vocal pour jouer ! Rejoins un salon vocal sur le serveur et relance l'activité.");
+      return;
+    }
+    if (guildId && guildId !== REQUIRED_GUILD_ID) {
+      setVoiceError("Cette activité est réservée au serveur officiel. Rejoins le bon serveur Discord pour jouer !");
+      return;
+    }
+    setVoiceError(null);
+  }, [insideDiscord, discordReady, guildId, channelId]);
+
   // Init game
   useEffect(() => {
     if (!player) {
       setLocation("/");
       return;
     }
+    if (voiceError) return;
     
     // Start session
     startGame.mutate(
@@ -588,8 +646,8 @@ export default function Game() {
       parcours,
       totalParcours: totalP,
       time: gameStateRef.current!.time,
-      // Reset attempts only when starting a fresh level (parcours 1)
-      attempts: parcours === 1 ? 1 : s.attempts,
+      // Attempts persist across levels — only reset when the user leaves the activity
+      attempts: s.attempts,
       status: "playing"
     }));
   }, [player]);
@@ -751,7 +809,6 @@ export default function Game() {
       state.status = "dead";
       setUiState(s => ({ ...s, status: "dead", attempts: s.attempts + 1 }));
       setTimeout(() => {
-        setUiState(s => ({ ...s, attempts: 1 }));
         initLevel(state.level, 1);
       }, 1000);
     } else {
@@ -766,9 +823,10 @@ export default function Game() {
     const state = gameStateRef.current;
     
     if (state.parcours < state.totalParcours) {
+      // Pause game, show "PARCOURS RÉUSSI!" — player must click to continue
       state.status = "won_parcours";
       setUiState(s => ({ ...s, status: "won_parcours" }));
-      setTimeout(() => initLevel(state.level, state.parcours + 1), 1000);
+      // No auto-transition — player clicks goToNextParcours
     } else {
       state.status = "won_level";
       setUiState(s => ({ ...s, status: "won_level" }));
@@ -792,10 +850,16 @@ export default function Game() {
     }
   }, [player, sessionId, initLevel]);
 
-  const goToNextLevel = useCallback(() => {
+  const goToNextParcours = useCallback(() => {
     if (!gameStateRef.current) return;
     const state = gameStateRef.current;
-    initLevel(state.level + 1, 1);
+    initLevel(state.level, state.parcours + 1);
+  }, [initLevel]);
+
+  const goToNextLevel = useCallback(() => {
+    if (!gameStateRef.current) return;
+    const currentLevel = gameStateRef.current.level;
+    initLevel(currentLevel + 1, 1);
   }, [initLevel]);
 
   // Keep refs in sync with the latest callbacks so the rAF loop sees fresh state
@@ -823,7 +887,7 @@ export default function Game() {
       if (d.parallax === 0) continue;
       // Apply parallax: shift back toward camera
       const px = d.x + camX * d.parallax;
-      drawDecoration(ctx, px, d.y, d.type, d.scale, state.theme);
+      drawDecoration(ctx, px, d.y, d.type, d.scale, state.theme, d.x);
     }
 
     // Distant ground band
@@ -997,7 +1061,14 @@ export default function Game() {
           style={{ imageRendering: "pixelated" }}
         />
 
-        {uiState.status === "loading" && (
+        {voiceError && (
+          <div className="absolute inset-0 bg-background/95 flex flex-col items-center justify-center z-30 p-6 text-center">
+            <div className="graffiti-text text-4xl md:text-5xl text-destructive drop-shadow-[0_0_10px_rgba(239,68,68,0.8)] mb-4">🎙️ VOCAL REQUIS</div>
+            <div className="text-white text-base md:text-lg max-w-sm leading-relaxed">{voiceError}</div>
+          </div>
+        )}
+
+        {uiState.status === "loading" && !voiceError && (
           <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-20">
             <div className="graffiti-text text-3xl text-white tracking-widest animate-pulse">CHARGEMENT...</div>
           </div>
@@ -1011,8 +1082,18 @@ export default function Game() {
         )}
 
         {uiState.status === "won_parcours" && (
-          <div className="absolute inset-0 bg-secondary/20 flex flex-col items-center justify-center z-20">
+          <div className="absolute inset-0 bg-secondary/20 backdrop-blur-sm flex flex-col items-center justify-center z-20 p-6 text-center">
             <div className="graffiti-text text-4xl md:text-5xl text-secondary drop-shadow-[0_0_10px_rgba(0,240,255,0.8)]">PARCOURS RÉUSSI !</div>
+            <div className="graffiti-text text-white mt-3 text-lg md:text-xl">
+              {uiState.parcours}/{uiState.totalParcours} — Continue vers le parcours {uiState.parcours + 1}
+            </div>
+            <Button
+              onClick={goToNextParcours}
+              size="lg"
+              className="graffiti-text text-xl tracking-widest mt-6 bg-secondary hover:bg-secondary/90 text-black border-2 border-border shadow-[0_0_15px_rgba(0,240,255,0.5)]"
+            >
+              CONTINUER
+            </Button>
           </div>
         )}
 

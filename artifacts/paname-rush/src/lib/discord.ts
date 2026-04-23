@@ -87,3 +87,13 @@ export function getDiscordSDK() {
 export function getDiscordAuth() {
   return _auth;
 }
+
+export function getDiscordGuildId(): string | null {
+  if (!_sdk) return null;
+  return (_sdk as unknown as { guildId?: string | null }).guildId ?? null;
+}
+
+export function getDiscordChannelId(): string | null {
+  if (!_sdk) return null;
+  return (_sdk as unknown as { channelId?: string | null }).channelId ?? null;
+}

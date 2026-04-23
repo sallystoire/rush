@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { initDiscordSDK, isInsideDiscord } from "@/lib/discord";
+import { initDiscordSDK, isInsideDiscord, getDiscordGuildId, getDiscordChannelId } from "@/lib/discord";
 
 interface DiscordUser {
   id: string;
@@ -13,6 +13,8 @@ interface DiscordContextValue {
   inside: boolean;
   user: DiscordUser | null;
   error: string | null;
+  guildId: string | null;
+  channelId: string | null;
 }
 
 const DiscordContext = createContext<DiscordContextValue>({
@@ -20,6 +22,8 @@ const DiscordContext = createContext<DiscordContextValue>({
   inside: false,
   user: null,
   error: null,
+  guildId: null,
+  channelId: null,
 });
 
 export function DiscordProvider({ children }: { children: ReactNode }) {
@@ -27,12 +31,16 @@ export function DiscordProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(!inside);
   const [user, setUser] = useState<DiscordUser | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [guildId, setGuildId] = useState<string | null>(null);
+  const [channelId, setChannelId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!inside) return;
     initDiscordSDK()
       .then((auth) => {
         if (auth) setUser(auth.user);
+        setGuildId(getDiscordGuildId());
+        setChannelId(getDiscordChannelId());
         setReady(true);
       })
       .catch((err) => {
@@ -43,7 +51,7 @@ export function DiscordProvider({ children }: { children: ReactNode }) {
   }, [inside]);
 
   return (
-    <DiscordContext.Provider value={{ ready, inside, user, error }}>
+    <DiscordContext.Provider value={{ ready, inside, user, error, guildId, channelId }}>
       {children}
     </DiscordContext.Provider>
   );
