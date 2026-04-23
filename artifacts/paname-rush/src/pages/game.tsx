@@ -517,6 +517,7 @@ export default function Game() {
     parcours: 1,
     totalParcours: 1,
     time: 0,
+    attempts: 1,
     status: "loading" // loading, playing, dead, won_parcours, won_level
   });
 
@@ -581,13 +582,15 @@ export default function Game() {
       status: "playing"
     };
     
-    setUiState({
+    setUiState((s) => ({
       level,
       parcours,
       totalParcours: totalP,
-      time: gameStateRef.current.time,
+      time: gameStateRef.current!.time,
+      // Reset attempts only when starting a fresh level (parcours 1)
+      attempts: parcours === 1 ? 1 : s.attempts,
       status: "playing"
-    });
+    }));
   }, [player]);
 
   // Game Loop
@@ -730,11 +733,14 @@ export default function Game() {
     // Levels 90-100: restart entire level
     if (state.level >= 90) {
       state.status = "dead";
-      setUiState(s => ({ ...s, status: "dead" }));
-      setTimeout(() => initLevel(state.level, 1), 1000);
+      setUiState(s => ({ ...s, status: "dead", attempts: s.attempts + 1 }));
+      setTimeout(() => {
+        setUiState(s => ({ ...s, attempts: 1 }));
+        initLevel(state.level, 1);
+      }, 1000);
     } else {
       state.status = "dead";
-      setUiState(s => ({ ...s, status: "dead" }));
+      setUiState(s => ({ ...s, status: "dead", attempts: s.attempts + 1 }));
       setTimeout(() => initLevel(state.level, state.parcours), 1000);
     }
   }, [initLevel]);
@@ -750,8 +756,8 @@ export default function Game() {
     } else {
       state.status = "won_level";
       setUiState(s => ({ ...s, status: "won_level" }));
-      
-      // Save progress
+
+      // Save progress (no auto-advance — wait for player to click a button)
       completeLevel.mutate(
         { sessionId, data: { level: state.level, time: state.time } },
         {
@@ -761,7 +767,6 @@ export default function Game() {
               {
                 onSuccess: (updatedPlayer) => {
                   setPlayer(updatedPlayer);
-                  setTimeout(() => initLevel(state.level + 1, 1), 2000);
                 }
               }
             );
@@ -770,6 +775,12 @@ export default function Game() {
       );
     }
   }, [player, sessionId, initLevel]);
+
+  const goToNextLevel = useCallback(() => {
+    if (!gameStateRef.current) return;
+    const state = gameStateRef.current;
+    initLevel(state.level + 1, 1);
+  }, [initLevel]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -896,8 +907,17 @@ export default function Game() {
           
           <div className="h-8 w-px bg-border hidden md:block"></div>
           
-          <div className="flex items-center gap-3 w-32 justify-end font-mono font-bold text-2xl text-accent drop-shadow-[0_0_5px_rgba(250,204,21,0.5)]">
+          <div className="flex items-center gap-3 font-mono font-bold text-2xl text-accent drop-shadow-[0_0_5px_rgba(250,204,21,0.5)]">
             {uiState.time.toFixed(1)}s
+          </div>
+
+          <div className="h-8 w-px bg-border hidden md:block"></div>
+
+          <div className="flex items-center gap-2">
+            <div className="text-muted-foreground text-sm">TENTATIVES</div>
+            <div className="text-2xl font-mono font-bold text-destructive drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]">
+              {uiState.attempts}
+            </div>
           </div>
         </div>
 
@@ -935,9 +955,33 @@ export default function Game() {
           )}
 
           {uiState.status === "won_level" && (
-            <div className="absolute inset-0 bg-accent/20 flex flex-col items-center justify-center z-20">
-              <div className="pixel-text text-5xl text-accent drop-shadow-[0_0_15px_rgba(250,204,21,0.8)]">NIVEAU TERMINE !</div>
-              <div className="pixel-text text-white mt-4 text-xl">Preparation du niveau suivant...</div>
+            <div className="absolute inset-0 bg-accent/20 backdrop-blur-sm flex flex-col items-center justify-center z-20 p-6 text-center">
+              <div className="pixel-text text-4xl md:text-5xl text-accent drop-shadow-[0_0_15px_rgba(250,204,21,0.8)]">
+                NIVEAU {uiState.level} TERMINE !
+              </div>
+              <div className="pixel-text text-white mt-4 text-lg md:text-xl">
+                Temps : {uiState.time.toFixed(1)}s — Tentatives : {uiState.attempts}
+              </div>
+              <div className="pixel-text text-secondary mt-6 text-xl md:text-2xl drop-shadow-[0_0_8px_rgba(0,240,255,0.6)]">
+                PROCHAIN NIVEAU : {uiState.level + 1}
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 mt-8">
+                <Button
+                  onClick={goToNextLevel}
+                  size="lg"
+                  className="pixel-text text-base bg-primary hover:bg-primary/90 text-white border-2 border-border shadow-[0_0_15px_rgba(255,0,85,0.5)]"
+                >
+                  JOUER
+                </Button>
+                <Button
+                  onClick={() => setLocation("/")}
+                  variant="secondary"
+                  size="lg"
+                  className="pixel-text text-base border-2 border-border"
+                >
+                  RETOUR A L'ACCUEIL
+                </Button>
+              </div>
             </div>
           )}
 
