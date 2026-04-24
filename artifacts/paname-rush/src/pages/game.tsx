@@ -573,6 +573,11 @@ export default function Game() {
   // Team position sync — stores latest teammate positions for rendering
   const teammatesRef = useRef<TeammatePosition[]>([]);
   const teamPositionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Team camera — persists zoom value across frames for smooth lerp
+  const teamCamZoomRef = useRef<number>(1.0);
+  // Ref so draw() (no-dep useCallback) can read isTeamMode without stale closure
+  const isTeamModeRef = useRef(isTeamMode);
   
   const keysRef = useRef<{ [key: string]: boolean }>({});
   const jumpKeyHeldRef = useRef<boolean>(false);
@@ -1012,6 +1017,7 @@ export default function Game() {
   // Keep refs in sync with the latest callbacks so the rAF loop sees fresh state
   useEffect(() => { winRef.current = win; }, [win]);
   useEffect(() => { dieRef.current = die; }, [die]);
+  useEffect(() => { isTeamModeRef.current = isTeamMode; }, [isTeamMode]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -1020,13 +1026,51 @@ export default function Game() {
     
     if (!canvas || !ctx || !state) return;
 
-    // Camera follow player
-    const camX = Math.max(0, state.player.x - canvas.width / 3);
+    // ── Team co-op camera with dynamic zoom ─────────────────
+    const visibleTeammates = teammatesRef.current.filter(
+      tm => tm.level === state.level && tm.parcours === state.parcours
+    );
 
-    // ── Sky gradient (themed) ───────────────────────────────
+    let camX: number;
+    let zoom: number;
+
+    const MIN_ZOOM = 0.42;
+    const ZOOM_PADDING = 220; // world-px padding around the group bounding box
+    const ZOOM_LERP = 0.06;
+
+    if (isTeamModeRef.current && visibleTeammates.length > 0) {
+      // Bounding box covering all players on this parcours
+      const allXs = [
+        state.player.x + state.player.w / 2,
+        ...visibleTeammates.map(tm => tm.x + 15),
+      ];
+      const minX = Math.min(...allXs);
+      const maxX = Math.max(...allXs);
+      const spreadX = maxX - minX;
+
+      // Target zoom: fit spread + padding into the canvas width
+      const targetZoom = Math.max(MIN_ZOOM, Math.min(1.0, canvas.width / (spreadX + ZOOM_PADDING * 2)));
+      teamCamZoomRef.current += (targetZoom - teamCamZoomRef.current) * ZOOM_LERP;
+      zoom = teamCamZoomRef.current;
+
+      // Center camera on the midpoint of all players
+      const centerX = (minX + maxX) / 2;
+      const visibleWidth = canvas.width / zoom;
+      camX = Math.max(0, centerX - visibleWidth / 2);
+    } else {
+      // Solo or no visible teammates — follow own player, return to zoom 1
+      teamCamZoomRef.current += (1.0 - teamCamZoomRef.current) * ZOOM_LERP;
+      zoom = teamCamZoomRef.current;
+      const visibleWidth = canvas.width / zoom;
+      camX = Math.max(0, state.player.x - visibleWidth / 3);
+    }
+
+    // ── Sky gradient (themed) — drawn in screen space before transform
     drawSky(ctx, canvas.width, canvas.height, state.theme, state.time);
 
     ctx.save();
+    // Apply zoom from top-left then translate for camera
+    ctx.scale(zoom, zoom);
     ctx.translate(-camX, 0);
 
     // ── Background decorations (parallax > 0) ───────────────
@@ -1037,8 +1081,8 @@ export default function Game() {
       drawDecoration(ctx, px, d.y, d.type, d.scale, state.theme, d.x);
     }
 
-    // Distant ground band
-    drawGroundBand(ctx, camX, canvas.width, state.theme);
+    // Distant ground band — pass visible world width so band covers the full view
+    drawGroundBand(ctx, camX, canvas.width / zoom, state.theme);
 
     // ── Platforms ───────────────────────────────────────────
     for (const plat of state.platforms) {
@@ -1110,19 +1154,17 @@ export default function Game() {
       drawDecoration(ctx, d.x, d.y, d.type, d.scale, state.theme);
     }
 
-    // ── Teammates (same level & parcours only) ───────────────
-    const teammates = teammatesRef.current;
-    if (teammates.length > 0) {
+    // ── Teammates (same level & parcours only, already filtered above) ──
+    if (visibleTeammates.length > 0) {
       ctx.save();
       ctx.globalAlpha = 0.65;
-      for (const tm of teammates) {
-        if (tm.level !== state.level || tm.parcours !== state.parcours) continue;
+      for (const tm of visibleTeammates) {
         const pw = 30, ph = 40;
         drawCharacter(ctx, tm.x, tm.y, pw, ph, tm.color, tm.facingRight);
-        // Name tag (small coloured dot above)
+        // Coloured dot above as name tag
         ctx.globalAlpha = 0.9;
         ctx.beginPath();
-        ctx.arc(tm.x + pw / 2, tm.y - 10, 5, 0, Math.PI * 2);
+        ctx.arc(tm.x + pw / 2, tm.y - 12, 5, 0, Math.PI * 2);
         ctx.fillStyle = tm.color;
         ctx.fill();
         ctx.strokeStyle = "#fff";
