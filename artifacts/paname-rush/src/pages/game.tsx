@@ -16,6 +16,9 @@ import {
   useCompleteLevel, 
   useUpdatePlayerProgress
 } from "@workspace/api-client-react";
+import CinematicChapter1 from "@/components/cinematic-chapter1";
+
+const CINEMATIC_CHAPTER1_KEY = "paname:cinematic-chapter1-seen";
 
 const croustyImgUrl = `${import.meta.env.BASE_URL}images/crousty.png`;
 
@@ -591,6 +594,12 @@ export default function Game() {
     status: "loading" // loading, playing, dead, won_parcours, won_level
   });
 
+  // Chapter 1 intro cinematic — shown the first time a player enters level 1
+  // in this browser session. Persists in sessionStorage so a death/retry on
+  // level 1 does not replay the cutscene.
+  const [showCinematicCh1, setShowCinematicCh1] = useState(false);
+  const cinematicChecked = useRef(false);
+
   // Preload crousty obstacle image
   const croustyImgRef = useRef<HTMLImageElement | null>(null);
   useEffect(() => {
@@ -729,7 +738,24 @@ export default function Game() {
       {
         onSuccess: (session) => {
           setSessionId(session.id);
-          initLevel(session.currentLevel, 1);
+          // If entering level 1 fresh and the chapter 1 cinematic hasn't
+          // been seen yet this session, show it BEFORE initLevel so the
+          // timer / physics don't tick during the cutscene.
+          let showIntro = false;
+          if (session.currentLevel === 1 && !cinematicChecked.current) {
+            cinematicChecked.current = true;
+            try {
+              showIntro = !sessionStorage.getItem(CINEMATIC_CHAPTER1_KEY);
+            } catch {
+              showIntro = true;
+            }
+          }
+          if (showIntro) {
+            setShowCinematicCh1(true);
+            // initLevel will be called when cinematic completes
+          } else {
+            initLevel(session.currentLevel, 1);
+          }
         },
         onError: () => {
           sessionStartedRef.current = false; // allow retry on error
@@ -739,6 +765,14 @@ export default function Game() {
       }
     );
   }, [player, isTeamMode]);
+
+  const handleCinematicDone = useCallback(() => {
+    try { sessionStorage.setItem(CINEMATIC_CHAPTER1_KEY, "1"); } catch { /* ignore */ }
+    setShowCinematicCh1(false);
+    // Kick off level 1 now that the player has dismissed the cutscene.
+    // (initLevel is a no-op if it was already called for some reason.)
+    initLevel(1, 1);
+  }, [initLevel]);
 
   const initLevel = useCallback((level: number, parcours: number) => {
     if (!player) return;
@@ -781,6 +815,18 @@ export default function Game() {
       attempts: s.attempts,
       status: "playing"
     }));
+
+    // First time the player enters level 1 in this browser session,
+    // pop the chapter 1 intro cinematic.
+    if (level === 1 && parcours === 1 && !cinematicChecked.current) {
+      cinematicChecked.current = true;
+      try {
+        const seen = sessionStorage.getItem(CINEMATIC_CHAPTER1_KEY);
+        if (!seen) setShowCinematicCh1(true);
+      } catch {
+        setShowCinematicCh1(true);
+      }
+    }
   }, [player]);
 
   // Refs to always hold the latest win/die so the rAF loop (with empty deps)

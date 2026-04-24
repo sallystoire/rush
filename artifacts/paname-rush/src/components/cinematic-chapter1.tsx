@@ -1,0 +1,172 @@
+import { useEffect, useState, useCallback } from "react";
+import {
+  playCinematicClick,
+  startCinematicMusic,
+  stopCinematicMusic,
+} from "@/lib/sfx";
+import img1 from "@assets/IMG_6485_1777014545626.png";
+import img2 from "@assets/IMG_6481_1777014545626.png";
+import img3 from "@assets/IMG_6482_1777014545626.png";
+import img4 from "@assets/IMG_6486_1777014545626.png";
+
+const SLIDES = [
+  { src: img1, alt: "Chapitre 1 : Maître Crousty" },
+  { src: img2, alt: "Maître Crousty a envahi la planète Terre" },
+  { src: img3, alt: "Vous devez traverser tout le royaume" },
+  { src: img4, alt: "Combattez en duel Maître Crousty" },
+];
+
+interface CinematicChapter1Props {
+  onComplete: () => void;
+}
+
+export default function CinematicChapter1({ onComplete }: CinematicChapter1Props) {
+  const [index, setIndex] = useState(0);
+  const [animKey, setAnimKey] = useState(0);
+
+  // Start music on first user interaction with the cinematic.
+  // Browsers block autoplay until a gesture, so we attach the start to
+  // the very first click anywhere on the cinematic surface.
+  const [musicStarted, setMusicStarted] = useState(false);
+
+  // Preload images so transitions feel instant
+  useEffect(() => {
+    SLIDES.forEach((s) => {
+      const img = new Image();
+      img.src = s.src;
+    });
+  }, []);
+
+  // Stop music on unmount no matter how we leave the cinematic
+  useEffect(() => {
+    return () => {
+      stopCinematicMusic();
+    };
+  }, []);
+
+  const ensureMusic = useCallback(() => {
+    if (musicStarted) return;
+    startCinematicMusic();
+    setMusicStarted(true);
+  }, [musicStarted]);
+
+  const handleNext = useCallback(() => {
+    ensureMusic();
+    playCinematicClick();
+    if (index >= SLIDES.length - 1) {
+      stopCinematicMusic();
+      onComplete();
+      return;
+    }
+    setIndex((i) => i + 1);
+    setAnimKey((k) => k + 1);
+  }, [index, ensureMusic, onComplete]);
+
+  // Keyboard support: Enter / Space / ArrowRight advance
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " " || e.key === "ArrowRight") {
+        e.preventDefault();
+        handleNext();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [handleNext]);
+
+  const isLast = index === SLIDES.length - 1;
+  const slide = SLIDES[index];
+
+  return (
+    <div
+      className="absolute inset-0 z-40 flex items-center justify-center bg-black overflow-hidden"
+      onClick={ensureMusic}
+      role="dialog"
+      aria-label="Cinématique Chapitre 1"
+    >
+      {/* Subtle vignette + drifting golden glow for atmosphere */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(0,0,0,0.85) 100%)",
+        }}
+      />
+      <div
+        className="absolute -top-20 -left-20 w-[500px] h-[500px] rounded-full blur-3xl opacity-30 pointer-events-none animate-cine-drift"
+        style={{ background: "radial-gradient(circle, #facc15 0%, transparent 70%)" }}
+      />
+      <div
+        className="absolute -bottom-32 -right-20 w-[600px] h-[600px] rounded-full blur-3xl opacity-25 pointer-events-none animate-cine-drift-rev"
+        style={{ background: "radial-gradient(circle, #f97316 0%, transparent 70%)" }}
+      />
+
+      {/* Slide image with Ken-Burns style zoom + fade-in per slide */}
+      <img
+        key={animKey}
+        src={slide.src}
+        alt={slide.alt}
+        className="relative max-w-[95vw] max-h-[88vh] object-contain shadow-[0_0_60px_rgba(250,204,21,0.35)] animate-cine-in"
+        draggable={false}
+      />
+
+      {/* Slide progress dots */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+        {SLIDES.map((_, i) => (
+          <span
+            key={i}
+            className={[
+              "w-3 h-3 rounded-full border-2 border-white/70 transition-all",
+              i === index
+                ? "bg-yellow-400 scale-110 shadow-[0_0_8px_rgba(250,204,21,0.9)]"
+                : i < index
+                ? "bg-white/60"
+                : "bg-white/10",
+            ].join(" ")}
+          />
+        ))}
+      </div>
+
+      {/* "Suite" button — top-right blue rectangle */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleNext();
+        }}
+        className={[
+          "absolute top-4 right-4 z-20 px-7 py-3 select-none",
+          "bg-gradient-to-b from-blue-500 to-blue-700",
+          "text-white graffiti-text text-2xl tracking-widest",
+          "border-4 border-yellow-300 rounded-md",
+          "shadow-[0_4px_0_0_#1e3a8a,0_0_20px_rgba(59,130,246,0.65)]",
+          "hover:from-blue-400 hover:to-blue-600 hover:scale-105",
+          "active:translate-y-[2px] active:shadow-[0_2px_0_0_#1e3a8a,0_0_16px_rgba(59,130,246,0.6)]",
+          "transition-transform duration-100",
+        ].join(" ")}
+        aria-label={isLast ? "Commencer le niveau" : "Image suivante"}
+      >
+        {isLast ? "COMMENCER ▶" : "SUITE ▶"}
+      </button>
+
+      <style>{`
+        @keyframes cine-in {
+          0%   { opacity: 0; transform: scale(1.06); filter: blur(8px); }
+          60%  { opacity: 1; filter: blur(0); }
+          100% { opacity: 1; transform: scale(1.0); filter: blur(0); }
+        }
+        @keyframes cine-drift {
+          0%, 100% { transform: translate(0, 0); }
+          50%      { transform: translate(40px, 30px); }
+        }
+        @keyframes cine-drift-rev {
+          0%, 100% { transform: translate(0, 0); }
+          50%      { transform: translate(-40px, -30px); }
+        }
+        .animate-cine-in       { animation: cine-in 1.6s ease-out both; }
+        .animate-cine-drift    { animation: cine-drift 9s ease-in-out infinite; }
+        .animate-cine-drift-rev{ animation: cine-drift-rev 11s ease-in-out infinite; }
+      `}</style>
+    </div>
+  );
+}
