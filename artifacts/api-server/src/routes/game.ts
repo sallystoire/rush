@@ -14,6 +14,11 @@ const teamDeaths = new Map<number, { playerId: number; timestamp: number }>();
 // teamId → { playerId, level, parcours, timestamp }
 const teamAdvances = new Map<number, { playerId: number; level: number; parcours: number; timestamp: number }>();
 
+// ── In-memory team positions ───────────────────────────────────
+// teamId → Map<playerId, { x, y, color, level, parcours, facingRight, timestamp }>
+interface PlayerPosition { x: number; y: number; color: string; level: number; parcours: number; facingRight: boolean; timestamp: number; }
+const teamPositions = new Map<number, Map<number, PlayerPosition>>();
+
 router.post("/game/start", async (req, res) => {
   const parsed = StartGameBody.safeParse(req.body);
   if (!parsed.success) {
@@ -107,6 +112,36 @@ router.post("/game/:sessionId/complete", async (req, res) => {
   }
 
   res.json(updated);
+});
+
+// ── Team position sync ────────────────────────────────────────
+// POST /game/team-position  { teamId, playerId, x, y, color, level, parcours, facingRight }
+router.post("/game/team-position", (req, res) => {
+  const { teamId, playerId, x, y, color, level, parcours, facingRight } = req.body as {
+    teamId: number; playerId: number; x: number; y: number;
+    color: string; level: number; parcours: number; facingRight: boolean;
+  };
+  if (!teamId || !playerId) { res.status(400).json({ error: "teamId and playerId required" }); return; }
+  if (!teamPositions.has(teamId)) teamPositions.set(teamId, new Map());
+  teamPositions.get(teamId)!.set(playerId, { x, y, color, level, parcours, facingRight, timestamp: Date.now() });
+  res.json({ ok: true });
+});
+
+// GET /game/team-positions/:teamId?playerId=<self>
+// Returns all teammates' positions (excludes self, removes stale > 8s)
+router.get("/game/team-positions/:teamId", (req, res) => {
+  const teamId = Number(req.params.teamId);
+  const selfId = Number(req.query.playerId ?? 0);
+  const now = Date.now();
+  const map = teamPositions.get(teamId);
+  if (!map) { res.json([]); return; }
+  const result: Array<PlayerPosition & { playerId: number }> = [];
+  for (const [pid, pos] of map.entries()) {
+    if (pid === selfId) continue;
+    if (now - pos.timestamp > 8000) { map.delete(pid); continue; } // stale — remove
+    result.push({ playerId: pid, ...pos });
+  }
+  res.json(result);
 });
 
 // ── Team advance notification ─────────────────────────────────

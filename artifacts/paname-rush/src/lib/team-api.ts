@@ -100,3 +100,34 @@ export const notifyTeamAdvance = (teamId: number, playerId: number, level: numbe
 
 export const getTeamAdvance = (teamId: number, since: number) =>
   req<TeamAdvanceState>(`/game/team-advance/${teamId}?since=${since}`);
+
+// ── Multiplayer position sync ─────────────────────────────────
+
+export interface TeammatePosition {
+  playerId: number;
+  x: number;
+  y: number;
+  color: string;
+  level: number;
+  parcours: number;
+  facingRight: boolean;
+  timestamp: number;
+}
+
+export const pushTeamPosition = (
+  teamId: number,
+  playerId: number,
+  x: number,
+  y: number,
+  color: string,
+  level: number,
+  parcours: number,
+  facingRight: boolean,
+) =>
+  req<{ ok: boolean }>("/game/team-position", {
+    method: "POST",
+    body: JSON.stringify({ teamId, playerId, x, y, color, level, parcours, facingRight }),
+  });
+
+export const getTeamPositions = (teamId: number, playerId: number) =>
+  req<TeammatePosition[]>(`/game/team-positions/${teamId}?playerId=${playerId}`);

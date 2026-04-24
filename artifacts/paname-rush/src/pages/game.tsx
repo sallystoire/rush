@@ -5,7 +5,7 @@ import { useDiscord } from "@/hooks/use-discord";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { notifyTeamDeath, getTeamState, notifyTeamAdvance, getTeamAdvance } from "@/lib/team-api";
+import { notifyTeamDeath, getTeamState, notifyTeamAdvance, getTeamAdvance, pushTeamPosition, getTeamPositions, type TeammatePosition } from "@/lib/team-api";
 import { 
   generateLevel, getTotalParcours, getLevelName, isLaserActive,
   checkCollision, GRAVITY, JUMP_FORCE, MOVE_SPEED, MAX_FALL_SPEED,
@@ -569,6 +569,10 @@ export default function Game() {
   // Team advance sync — timestamp of when we started playing this session
   const teamAdvanceSinceRef = useRef<number>(Date.now());
   const teamAdvancePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Team position sync — stores latest teammate positions for rendering
+  const teammatesRef = useRef<TeammatePosition[]>([]);
+  const teamPositionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   const keysRef = useRef<{ [key: string]: boolean }>({});
   const jumpKeyHeldRef = useRef<boolean>(false);
@@ -668,6 +672,38 @@ export default function Game() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isTeamMode, urlTeamId]);
+
+  // Team position sync — broadcast own position + receive teammates' positions every 100ms
+  useEffect(() => {
+    if (!isTeamMode || !urlTeamId || !player) return;
+
+    teamPositionIntervalRef.current = setInterval(async () => {
+      const state = gameStateRef.current;
+      if (!state) return;
+      const p = state.player;
+      // Broadcast our own position (fire-and-forget)
+      pushTeamPosition(
+        urlTeamId, player.id,
+        Math.round(p.x), Math.round(p.y),
+        player.color,
+        state.level, state.parcours,
+        p.vx >= 0,
+      ).catch(() => {});
+      // Fetch teammates' positions
+      try {
+        const positions = await getTeamPositions(urlTeamId, player.id);
+        teammatesRef.current = positions;
+      } catch {
+        // ignore
+      }
+    }, 100);
+
+    return () => {
+      if (teamPositionIntervalRef.current) clearInterval(teamPositionIntervalRef.current);
+      teammatesRef.current = [];
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTeamMode, urlTeamId, player]);
 
   // Init game — runs only once. Using player as dep so it waits for auth to resolve,
   // but the sessionStartedRef guard prevents re-running when player updates mid-game
@@ -1072,6 +1108,29 @@ export default function Game() {
     for (const d of state.decorations) {
       if (d.parallax !== 0) continue;
       drawDecoration(ctx, d.x, d.y, d.type, d.scale, state.theme);
+    }
+
+    // ── Teammates (same level & parcours only) ───────────────
+    const teammates = teammatesRef.current;
+    if (teammates.length > 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.65;
+      for (const tm of teammates) {
+        if (tm.level !== state.level || tm.parcours !== state.parcours) continue;
+        const pw = 30, ph = 40;
+        drawCharacter(ctx, tm.x, tm.y, pw, ph, tm.color, tm.facingRight);
+        // Name tag (small coloured dot above)
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        ctx.arc(tm.x + pw / 2, tm.y - 10, 5, 0, Math.PI * 2);
+        ctx.fillStyle = tm.color;
+        ctx.fill();
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.globalAlpha = 0.65;
+      }
+      ctx.restore();
     }
 
     // ── Player ──────────────────────────────────────────────
