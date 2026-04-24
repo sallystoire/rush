@@ -137,6 +137,29 @@ router.put("/players/:playerId/progress", async (req, res) => {
   res.json(existing);
 });
 
+router.patch("/players/:playerId/character", async (req, res) => {
+  const playerId = Number(req.params.playerId);
+  if (isNaN(playerId)) { res.status(400).json({ error: "Invalid playerId" }); return; }
+
+  const { skinColor, gender, hairColor, equippedItems } = req.body as {
+    skinColor?: string; gender?: string; hairColor?: string; equippedItems?: string[];
+  };
+
+  const [existing] = await db.select().from(playersTable).where(eq(playersTable.id, playerId)).limit(1);
+  if (!existing) { res.status(404).json({ error: "Player not found" }); return; }
+
+  const updateData: Record<string, unknown> = {};
+  if (skinColor !== undefined) updateData.skinColor = skinColor;
+  if (gender !== undefined) updateData.gender = gender;
+  if (hairColor !== undefined) updateData.hairColor = hairColor;
+  if (equippedItems !== undefined) updateData.equippedItems = JSON.stringify(equippedItems);
+
+  if (Object.keys(updateData).length === 0) { res.json(existing); return; }
+
+  const [updated] = await db.update(playersTable).set(updateData).where(eq(playersTable.id, playerId)).returning();
+  res.json(updated);
+});
+
 router.get("/players/:playerId/boosts", async (req, res) => {
   const parsed = GetPlayerBoostsParams.safeParse({ playerId: Number(req.params.playerId) });
   if (!parsed.success) {

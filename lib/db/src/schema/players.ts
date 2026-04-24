@@ -13,6 +13,11 @@ export const playersTable = pgTable("players", {
   discordId: text("discord_id").unique(),
   banned: boolean("banned").notNull().default(false),
   coins: integer("coins").notNull().default(0),
+  skinColor: text("skin_color").notNull().default("beige"),
+  gender: text("gender").notNull().default("male"),
+  hairColor: text("hair_color").notNull().default("#3b1f0a"),
+  equippedItems: text("equipped_items").notNull().default("[]"),
+  ownedItems: text("owned_items").notNull().default("[]"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

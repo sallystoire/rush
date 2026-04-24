@@ -8,6 +8,7 @@ import codesRouter from "./codes";
 import gameRouter from "./game";
 import discordRouter from "./discord";
 import adminRouter from "./admin";
+import shopRouter from "./shop";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(codesRouter);
 router.use(gameRouter);
 router.use(discordRouter);
 router.use(adminRouter);
+router.use(shopRouter);
 
 export default router;
