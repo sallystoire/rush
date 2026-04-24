@@ -766,14 +766,6 @@ export default function Game() {
     );
   }, [player, isTeamMode]);
 
-  const handleCinematicDone = useCallback(() => {
-    try { sessionStorage.setItem(CINEMATIC_CHAPTER1_KEY, "1"); } catch { /* ignore */ }
-    setShowCinematicCh1(false);
-    // Kick off level 1 now that the player has dismissed the cutscene.
-    // (initLevel is a no-op if it was already called for some reason.)
-    initLevel(1, 1);
-  }, [initLevel]);
-
   const initLevel = useCallback((level: number, parcours: number) => {
     if (!player) return;
     
@@ -815,19 +807,19 @@ export default function Game() {
       attempts: s.attempts,
       status: "playing"
     }));
-
-    // First time the player enters level 1 in this browser session,
-    // pop the chapter 1 intro cinematic.
-    if (level === 1 && parcours === 1 && !cinematicChecked.current) {
-      cinematicChecked.current = true;
-      try {
-        const seen = sessionStorage.getItem(CINEMATIC_CHAPTER1_KEY);
-        if (!seen) setShowCinematicCh1(true);
-      } catch {
-        setShowCinematicCh1(true);
-      }
-    }
   }, [player]);
+
+  // Called once the chapter 1 intro cinematic is dismissed.
+  const handleCinematicCh1Done = useCallback(() => {
+    try { sessionStorage.setItem(CINEMATIC_CHAPTER1_KEY, "1"); } catch { /* ignore */ }
+    // Clear any keys that may have been "stuck down" while the cinematic
+    // was capturing input (Space / Enter / ArrowRight on the Suite button)
+    // so the player doesn't auto-jump as soon as the level appears.
+    keysRef.current = {};
+    jumpKeyHeldRef.current = false;
+    setShowCinematicCh1(false);
+    initLevel(1, 1);
+  }, [initLevel]);
 
   // Refs to always hold the latest win/die so the rAF loop (with empty deps)
   // doesn't capture a stale version where sessionId/player are still null.
@@ -1332,6 +1324,10 @@ export default function Game() {
           className="absolute inset-0 m-auto max-w-full max-h-full w-full h-full object-contain"
           style={{ imageRendering: "pixelated" }}
         />
+
+        {showCinematicCh1 && (
+          <CinematicChapter1 onComplete={handleCinematicCh1Done} />
+        )}
 
         {voiceError && (
           <div className="absolute inset-0 bg-background/95 flex flex-col items-center justify-center z-30 p-6 text-center">
