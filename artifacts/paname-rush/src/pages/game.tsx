@@ -752,9 +752,10 @@ export default function Game() {
     const p = state.player;
     const keys = keysRef.current;
 
-    // Movement
-    if (keys["ArrowLeft"] || keys["a"] || keys["q"]) p.vx = -MOVE_SPEED;
-    else if (keys["ArrowRight"] || keys["d"] || keys["d"]) p.vx = MOVE_SPEED;
+    // Movement — speed scales with level (3 at lvl 1, up to 5 at lvl 5+)
+    const moveSpeed = Math.min(MOVE_SPEED, 3 + (state.level - 1) * 0.5);
+    if (keys["ArrowLeft"] || keys["a"] || keys["q"]) p.vx = -moveSpeed;
+    else if (keys["ArrowRight"] || keys["d"] || keys["d"]) p.vx = moveSpeed;
     else p.vx = 0;
 
     const jumpHeld = !!(keys["ArrowUp"] || keys["w"] || keys["z"] || keys[" "]);
