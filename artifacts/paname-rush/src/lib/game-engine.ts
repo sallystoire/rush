@@ -70,6 +70,26 @@ export interface Laser {
   orientation: "horizontal" | "vertical";
 }
 
+// Jewel: collectible items that appear in chapter 2 levels (5–10).
+// Walking over one collects it (no death, just bumps a counter).
+export type JewelType = "diamond" | "ruby" | "crown" | "necklace" | "bracelet";
+
+export interface Jewel {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  type: JewelType;
+  collected: boolean;
+  // Visual phase offset so jewels don't all bob/sparkle in sync
+  phase: number;
+}
+
+// Whether the given level should spawn collectible jewels.
+export function levelHasJewels(level: number): boolean {
+  return level >= 5 && level <= 10;
+}
+
 export interface GameState {
   player: {
     x: number;
@@ -86,6 +106,7 @@ export interface GameState {
   trains: Train[];
   croustys: Crousty[];
   lasers: Laser[];
+  jewels: Jewel[];
   decorations: Decoration[];
   level: number;
   parcours: number;
@@ -283,6 +304,7 @@ interface GeneratedLevel {
   trains: Train[];
   croustys: Crousty[];
   lasers: Laser[];
+  jewels: Jewel[];
   decorations: Decoration[];
   worldEnd: number;
   theme: LevelTheme;
@@ -298,6 +320,7 @@ export function generateLevel(level: number, parcoursIndex: number): GeneratedLe
   const trains: Train[] = [];
   const croustys: Crousty[] = [];
   const lasers: Laser[] = [];
+  const jewels: Jewel[] = [];
   const decorations: Decoration[] = [];
 
   const difficulty = Math.min(level / 10, 10); // 0 to 10
@@ -490,6 +513,39 @@ export function generateLevel(level: number, parcoursIndex: number): GeneratedLe
     }
   }
 
+  // ── Jewels (chapter 2: levels 5–10) ──────────────────────
+  // Sprinkle 6–10 collectible jewels across the level. We place them above
+  // walkable platforms (avoiding lava/goal) and slightly above ground so the
+  // player walks/jumps through them.
+  if (levelHasJewels(level)) {
+    const jewelTypes: JewelType[] = ["diamond", "ruby", "crown", "necklace", "bracelet"];
+    const walkable = platforms.filter(
+      (p) => p.type !== "lava" && p.type !== "goal" && p.w >= 50 && p.y < 700,
+    );
+    const jewelCount = 6 + Math.floor(rng() * 5); // 6–10 jewels per level
+    for (let j = 0; j < jewelCount && walkable.length > 0; j++) {
+      const plat = walkable[Math.floor(rng() * walkable.length)];
+      const jw = 26;
+      const jh = 26;
+      // Position above the platform surface — sometimes "floating" so the
+      // player has to jump for it.
+      const liftAboveSurface = 18 + Math.floor(rng() * 60); // 18–78px
+      const margin = 12;
+      const usableW = Math.max(0, plat.w - jw - margin * 2);
+      const jx = plat.x + margin + rng() * usableW;
+      const jy = plat.y - jh - liftAboveSurface;
+      jewels.push({
+        x: jx,
+        y: jy,
+        w: jw,
+        h: jh,
+        type: jewelTypes[Math.floor(rng() * jewelTypes.length)],
+        collected: false,
+        phase: rng() * Math.PI * 2,
+      });
+    }
+  }
+
   // ── Goal platform ────────────────────────────────────────
   const goalX = currentX + 80;
   const goalY = groundY - 90;
@@ -539,6 +595,7 @@ export function generateLevel(level: number, parcoursIndex: number): GeneratedLe
     trains,
     croustys,
     lasers,
+    jewels,
     decorations,
     worldEnd: goalX + 200,
     theme,

@@ -7,9 +7,10 @@ import { ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { notifyTeamDeath, getTeamState, notifyTeamAdvance, getTeamAdvance, pushTeamPosition, getTeamPositions, type TeammatePosition } from "@/lib/team-api";
 import { 
-  generateLevel, getTotalParcours, getLevelName, isLaserActive,
+  generateLevel, getTotalParcours, getLevelName, isLaserActive, levelHasJewels,
   checkCollision, GRAVITY, JUMP_FORCE, MOVE_SPEED, MAX_FALL_SPEED,
-  type GameState, type Rect, type Platform, type Decoration, type LevelTheme
+  type GameState, type Rect, type Platform, type Decoration, type LevelTheme,
+  type Jewel
 } from "@/lib/game-engine";
 import { 
   useStartGame, 
@@ -17,8 +18,10 @@ import {
   useUpdatePlayerProgress
 } from "@workspace/api-client-react";
 import CinematicChapter1 from "@/components/cinematic-chapter1";
+import CinematicChapter2 from "@/components/cinematic-chapter2";
 
 const CINEMATIC_CHAPTER1_KEY = "paname:cinematic-chapter1-seen";
+const CINEMATIC_CHAPTER2_KEY = "paname:cinematic-chapter2-seen";
 
 const croustyImgUrl = `${import.meta.env.BASE_URL}images/crousty.png`;
 
@@ -707,6 +710,197 @@ function drawDecoration(
   ctx.restore();
 }
 
+function drawJewel(
+  ctx: CanvasRenderingContext2D,
+  jewel: Jewel,
+  time: number,
+) {
+  if (jewel.collected) return;
+  const cx = jewel.x + jewel.w / 2;
+  const baseCy = jewel.y + jewel.h / 2;
+  // Gentle bobbing
+  const bob = Math.sin(time * 2 + jewel.phase) * 3;
+  const cy = baseCy + bob;
+  const halfW = jewel.w / 2;
+  const halfH = jewel.h / 2;
+
+  ctx.save();
+  // Soft golden halo so jewels are easy to spot at any zoom
+  const haloGrad = ctx.createRadialGradient(cx, cy, 2, cx, cy, halfW * 1.8);
+  haloGrad.addColorStop(0, "rgba(255, 235, 150, 0.55)");
+  haloGrad.addColorStop(1, "rgba(255, 235, 150, 0)");
+  ctx.fillStyle = haloGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, halfW * 1.8, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.shadowColor = "rgba(255, 220, 120, 0.85)";
+  ctx.shadowBlur = 10;
+
+  switch (jewel.type) {
+    case "diamond": {
+      // Cyan/white rhombus with bright facet
+      const grad = ctx.createLinearGradient(cx, cy - halfH, cx, cy + halfH);
+      grad.addColorStop(0, "#e0f7ff");
+      grad.addColorStop(0.5, "#7dd3fc");
+      grad.addColorStop(1, "#0ea5e9");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - halfH);
+      ctx.lineTo(cx + halfW, cy);
+      ctx.lineTo(cx, cy + halfH);
+      ctx.lineTo(cx - halfW, cy);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      // Highlight facet
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - halfH * 0.8);
+      ctx.lineTo(cx + halfW * 0.4, cy - halfH * 0.1);
+      ctx.lineTo(cx, cy);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    }
+    case "ruby": {
+      // Red gem (oval cabochon)
+      const grad = ctx.createRadialGradient(cx - 4, cy - 4, 2, cx, cy, halfW);
+      grad.addColorStop(0, "#fecaca");
+      grad.addColorStop(0.4, "#ef4444");
+      grad.addColorStop(1, "#7f1d1d");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, halfW, halfH * 0.85, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#fff1f2";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      // Highlight
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
+      ctx.beginPath();
+      ctx.ellipse(cx - halfW * 0.35, cy - halfH * 0.3, halfW * 0.3, halfH * 0.18, 0, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case "crown": {
+      // Gold crown — base band + 3 points + 3 jewels
+      ctx.fillStyle = "#fbbf24";
+      ctx.strokeStyle = "#78350f";
+      ctx.lineWidth = 1.5;
+      // Band
+      const bandY = cy + halfH * 0.3;
+      const bandH = halfH * 0.55;
+      ctx.beginPath();
+      ctx.rect(cx - halfW, bandY, jewel.w, bandH);
+      ctx.fill();
+      ctx.stroke();
+      // Three triangular points
+      ctx.beginPath();
+      ctx.moveTo(cx - halfW, bandY);
+      ctx.lineTo(cx - halfW * 0.55, cy - halfH * 0.7);
+      ctx.lineTo(cx - halfW * 0.1, bandY);
+      ctx.lineTo(cx + halfW * 0.1, bandY);
+      ctx.lineTo(cx + halfW * 0.55, cy - halfH * 0.7);
+      ctx.lineTo(cx + halfW, bandY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      // Three little gems on the points
+      const gems = [
+        { x: cx - halfW * 0.55, color: "#22d3ee" },
+        { x: cx, color: "#ef4444" },
+        { x: cx + halfW * 0.55, color: "#22d3ee" },
+      ];
+      for (const g of gems) {
+        ctx.fillStyle = g.color;
+        ctx.beginPath();
+        ctx.arc(g.x, cy - halfH * 0.78, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      break;
+    }
+    case "necklace": {
+      // Pearl chain in a U curve with a red gem pendant
+      ctx.strokeStyle = "rgba(120, 53, 15, 0.6)";
+      ctx.lineWidth = 1;
+      ctx.fillStyle = "#fef3c7";
+      const beadCount = 9;
+      for (let b = 0; b < beadCount; b++) {
+        const t = b / (beadCount - 1);
+        const bx = cx - halfW + t * jewel.w;
+        // U curve
+        const by = cy - halfH * 0.4 + Math.sin(Math.PI * t) * halfH * 0.7;
+        ctx.beginPath();
+        ctx.arc(bx, by, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+      // Pendant (red drop)
+      const pendantY = cy + halfH * 0.5;
+      ctx.fillStyle = "#dc2626";
+      ctx.strokeStyle = "#fbbf24";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(cx, pendantY - 4);
+      ctx.lineTo(cx + 3.5, pendantY);
+      ctx.lineTo(cx, pendantY + 5);
+      ctx.lineTo(cx - 3.5, pendantY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      break;
+    }
+    case "bracelet": {
+      // Gold ring with a small gem
+      ctx.strokeStyle = "#f59e0b";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, halfW * 0.85, halfH * 0.6, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      // Inner highlight
+      ctx.strokeStyle = "#fde68a";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, halfW * 0.85, halfH * 0.6, 0, Math.PI * 1.1, Math.PI * 1.7);
+      ctx.stroke();
+      // Centerpiece gem
+      ctx.fillStyle = "#a855f7";
+      ctx.strokeStyle = "#fef3c7";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(cx, cy - halfH * 0.55, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      break;
+    }
+  }
+
+  // Twinkling sparkle
+  const twinkle = (Math.sin(time * 4 + jewel.phase) + 1) / 2; // 0..1
+  if (twinkle > 0.6) {
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = `rgba(255, 255, 255, ${twinkle * 0.9})`;
+    const sx = cx + halfW * 0.5;
+    const sy = cy - halfH * 0.7;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy - 4);
+    ctx.lineTo(sx + 1, sy - 1);
+    ctx.lineTo(sx + 4, sy);
+    ctx.lineTo(sx + 1, sy + 1);
+    ctx.lineTo(sx, sy + 4);
+    ctx.lineTo(sx - 1, sy + 1);
+    ctx.lineTo(sx - 4, sy);
+    ctx.lineTo(sx - 1, sy - 1);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
 function drawCharacter(
   ctx: CanvasRenderingContext2D,
   x: number, y: number,
@@ -818,6 +1012,7 @@ export default function Game() {
     totalParcours: 1,
     time: 0,
     attempts: 1,
+    jewels: 0,
     status: "loading" // loading, playing, dead, won_parcours, won_level
   });
 
@@ -826,6 +1021,12 @@ export default function Game() {
   // level 1 does not replay the cutscene.
   const [showCinematicCh1, setShowCinematicCh1] = useState(false);
   const cinematicChecked = useRef(false);
+
+  // Chapter 2 intro cinematic — shown the first time a player enters level 5
+  // (the "Musée du Louvre" arc where jewels start spawning).
+  const [showCinematicCh2, setShowCinematicCh2] = useState(false);
+  const cinematicCh2Checked = useRef(false);
+  const pendingLevelStart = useRef<{ level: number; parcours: number } | null>(null);
 
   // Preload crousty obstacle image
   const croustyImgRef = useRef<HTMLImageElement | null>(null);
@@ -995,10 +1196,29 @@ export default function Game() {
 
   const initLevel = useCallback((level: number, parcours: number) => {
     if (!player) return;
-    
+
+    // Chapter 2 cinematic gate — first time the player reaches level 5,
+    // pause and show the "Musée du Louvre" intro before generating the map.
+    // We only gate when entering a fresh level (parcours === 1) so death
+    // restarts mid-level don't replay the cutscene.
+    if (level === 5 && parcours === 1 && !cinematicCh2Checked.current) {
+      cinematicCh2Checked.current = true;
+      let seenCh2 = false;
+      try {
+        seenCh2 = !!sessionStorage.getItem(CINEMATIC_CHAPTER2_KEY);
+      } catch {
+        seenCh2 = true;
+      }
+      if (!seenCh2) {
+        pendingLevelStart.current = { level, parcours };
+        setShowCinematicCh2(true);
+        return;
+      }
+    }
+
     const totalP = getTotalParcours(level);
     const gen = generateLevel(level, parcours);
-    
+
     gameStateRef.current = {
       player: {
         x: 100,
@@ -1015,6 +1235,7 @@ export default function Game() {
       trains: gen.trains.map(t => ({ ...t })),
       croustys: gen.croustys.map(c => ({ ...c })),
       lasers: gen.lasers.map(l => ({ ...l })),
+      jewels: gen.jewels.map(j => ({ ...j })),
       decorations: gen.decorations,
       worldEnd: gen.worldEnd,
       theme: gen.theme,
@@ -1024,7 +1245,7 @@ export default function Game() {
       time: parcours === 1 ? 0 : (gameStateRef.current?.time || 0),
       status: "playing"
     };
-    
+
     setUiState((s) => ({
       level,
       parcours,
@@ -1032,6 +1253,8 @@ export default function Game() {
       time: gameStateRef.current!.time,
       // Attempts persist across levels — only reset when the user leaves the activity
       attempts: s.attempts,
+      // Jewel counter resets each new level (parcours 1) and persists across parcours
+      jewels: parcours === 1 ? 0 : (s.jewels ?? 0),
       status: "playing"
     }));
   }, [player]);
@@ -1046,6 +1269,17 @@ export default function Game() {
     jumpKeyHeldRef.current = false;
     setShowCinematicCh1(false);
     initLevel(1, 1);
+  }, [initLevel]);
+
+  // Called once the chapter 2 (Louvre) intro cinematic is dismissed.
+  const handleCinematicCh2Done = useCallback(() => {
+    try { sessionStorage.setItem(CINEMATIC_CHAPTER2_KEY, "1"); } catch { /* ignore */ }
+    keysRef.current = {};
+    jumpKeyHeldRef.current = false;
+    setShowCinematicCh2(false);
+    const pending = pendingLevelStart.current ?? { level: 5, parcours: 1 };
+    pendingLevelStart.current = null;
+    initLevel(pending.level, pending.parcours);
   }, [initLevel]);
 
   // Refs to always hold the latest win/die so the rAF loop (with empty deps)
@@ -1160,6 +1394,26 @@ export default function Game() {
       if (checkCollision({ x: p.x, y: p.y, w: p.w, h: p.h }, lRect)) {
         dieRef.current();
         return;
+      }
+    }
+
+    // ── Jewels: collected on contact (no death — just bumps the counter) ─
+    if (state.jewels.length > 0) {
+      let collectedThisFrame = 0;
+      const playerRect: Rect = { x: p.x, y: p.y, w: p.w, h: p.h };
+      for (const j of state.jewels) {
+        if (j.collected) continue;
+        const jRect: Rect = { x: j.x, y: j.y, w: j.w, h: j.h };
+        if (checkCollision(playerRect, jRect)) {
+          j.collected = true;
+          collectedThisFrame += 1;
+        }
+      }
+      if (collectedThisFrame > 0) {
+        setUiState((s) => ({ ...s, jewels: s.jewels + collectedThisFrame }));
+        if (typeof navigator !== "undefined" && navigator.vibrate) {
+          navigator.vibrate(15);
+        }
       }
     }
 
@@ -1419,6 +1673,11 @@ export default function Game() {
       drawDecoration(ctx, d.x, d.y, d.type, d.scale, state.theme);
     }
 
+    // ── Jewels (chapter 2 levels 5–10) ──────────────────────
+    for (const j of state.jewels) {
+      drawJewel(ctx, j, state.time);
+    }
+
     // ── Teammates (same level & parcours only, already filtered above) ──
     if (visibleTeammates.length > 0) {
       ctx.save();
@@ -1530,6 +1789,18 @@ export default function Game() {
               {uiState.attempts}
             </span>
           </div>
+
+          {levelHasJewels(uiState.level) && (
+            <>
+              <div className="h-5 w-px bg-border"></div>
+              <div className="flex items-baseline gap-1.5" data-testid="hud-jewels">
+                <span className="text-base md:text-xl" aria-hidden>💎</span>
+                <span className="text-base md:text-xl text-amber-300 drop-shadow-[0_0_6px_rgba(252,211,77,0.7)] tabular-nums">
+                  {uiState.jewels}
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -1554,6 +1825,10 @@ export default function Game() {
 
         {showCinematicCh1 && (
           <CinematicChapter1 onComplete={handleCinematicCh1Done} />
+        )}
+
+        {showCinematicCh2 && (
+          <CinematicChapter2 onComplete={handleCinematicCh2Done} />
         )}
 
         {voiceError && (
