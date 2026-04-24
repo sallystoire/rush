@@ -18,10 +18,7 @@ async function fetchRuntimeClientId(): Promise<string | null> {
 }
 
 export function isInsideDiscord(): boolean {
-  return (
-    window.location.search.includes("frame_id=") ||
-    (!!window.parent && window.parent !== window)
-  );
+  return window.location.search.includes("frame_id=");
 }
 
 let _sdk: DiscordSDK | null = null;
