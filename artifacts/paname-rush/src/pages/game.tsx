@@ -564,6 +564,7 @@ export default function Game() {
   const teamDeathPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   const keysRef = useRef<{ [key: string]: boolean }>({});
+  const jumpKeyHeldRef = useRef<boolean>(false);
   
   const [uiState, setUiState] = useState({
     level: 1,
@@ -673,7 +674,8 @@ export default function Game() {
         vx: 0,
         vy: 0,
         color: player.color,
-        isGrounded: false
+        isGrounded: false,
+        jumpsRemaining: 2
       },
       platforms: gen.platforms,
       trains: gen.trains.map(t => ({ ...t })),
@@ -718,13 +720,16 @@ export default function Game() {
     else if (keys["ArrowRight"] || keys["d"] || keys["d"]) p.vx = MOVE_SPEED;
     else p.vx = 0;
 
-    if ((keys["ArrowUp"] || keys["w"] || keys["z"] || keys[" "]) && p.isGrounded) {
+    const jumpHeld = !!(keys["ArrowUp"] || keys["w"] || keys["z"] || keys[" "]);
+    if (jumpHeld && !jumpKeyHeldRef.current && p.jumpsRemaining > 0) {
       p.vy = JUMP_FORCE;
       p.isGrounded = false;
+      p.jumpsRemaining -= 1;
       if (typeof navigator !== "undefined" && navigator.vibrate) {
         navigator.vibrate(20);
       }
     }
+    jumpKeyHeldRef.current = jumpHeld;
 
     // Apply physics
     p.vy += GRAVITY;
@@ -768,6 +773,7 @@ export default function Game() {
             p.y = plat.y - p.h;
             p.vy = 0;
             p.isGrounded = true;
+            p.jumpsRemaining = 2;
           } else if (p.vy < 0) {
             p.y = plat.y + plat.h;
             p.vy = 0;

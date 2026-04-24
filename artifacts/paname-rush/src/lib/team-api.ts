@@ -16,6 +16,7 @@ export interface LobbyState {
   ready: number[];
   countdownStart: number | null;
   inviteTimestamp: number | null;
+  gameStartedAt: number | null;
 }
 
 export interface TeamDeathState {

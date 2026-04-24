@@ -22,7 +22,7 @@ import {
   Crown, LogOut, UserMinus, ArrowRightLeft, Send, CheckCircle
 } from "lucide-react";
 import {
-  getLobby, markReady, cancelReady, resetLobby, sendInvite,
+  getLobby, markReady, cancelReady, sendInvite,
   kickMember, transferOwnership, updateTeamSettings,
   type LobbyState,
 } from "@/lib/team-api";
@@ -104,20 +104,20 @@ export default function GameMode() {
       const state = await getLobby(teamId);
       setLobby(state);
 
-      // Countdown logic
-      if (state.countdownStart !== null) {
+      // Countdown logic — only show countdown until the server confirms the game has started
+      if (state.countdownStart !== null && state.gameStartedAt === null) {
         const elapsed = (Date.now() - state.countdownStart) / 1000;
         const remaining = Math.max(0, COUNTDOWN_SECONDS - elapsed);
         setCountdown(Math.ceil(remaining));
-
-        if (remaining <= 0 && !gameStartedRef.current) {
-          gameStartedRef.current = true;
-          setGameStarted(true);
-          await resetLobby(teamId);
-          setLocation(`/game?mode=team&teamId=${teamId}`);
-        }
       } else {
         setCountdown(null);
+      }
+
+      // Game start signal — driven by the server so every member transitions together
+      if (state.gameStartedAt !== null && !gameStartedRef.current) {
+        gameStartedRef.current = true;
+        setGameStarted(true);
+        setLocation(`/game?mode=team&teamId=${teamId}`);
       }
 
       // Invite notification

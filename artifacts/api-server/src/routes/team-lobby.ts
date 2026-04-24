@@ -11,22 +11,44 @@ interface LobbyState {
   ready: Set<number>;
   countdownStart: number | null;
   inviteTimestamp: number | null; // when the last invite was sent
+  gameStartedAt: number | null;   // when the game actually started (after countdown)
 }
 const teamLobbies = new Map<number, LobbyState>();
 
+const COUNTDOWN_MS = 20_000;
+const GAME_STARTED_GRACE_MS = 60_000;
+
 function getLobby(teamId: number): LobbyState {
   if (!teamLobbies.has(teamId)) {
-    teamLobbies.set(teamId, { ready: new Set(), countdownStart: null, inviteTimestamp: null });
+    teamLobbies.set(teamId, { ready: new Set(), countdownStart: null, inviteTimestamp: null, gameStartedAt: null });
   }
   return teamLobbies.get(teamId)!;
 }
 
 function serializeLobby(teamId: number) {
   const lobby = getLobby(teamId);
+  const now = Date.now();
+
+  // Auto-transition: countdown elapsed -> mark game as started (one-time)
+  if (lobby.countdownStart !== null && lobby.gameStartedAt === null) {
+    if (now - lobby.countdownStart >= COUNTDOWN_MS) {
+      lobby.gameStartedAt = now;
+    }
+  }
+
+  // Auto-clear: after the grace window everyone has had time to navigate, reset
+  if (lobby.gameStartedAt !== null && now - lobby.gameStartedAt > GAME_STARTED_GRACE_MS) {
+    lobby.ready.clear();
+    lobby.countdownStart = null;
+    lobby.gameStartedAt = null;
+    lobby.inviteTimestamp = null;
+  }
+
   return {
     ready: Array.from(lobby.ready),
     countdownStart: lobby.countdownStart,
     inviteTimestamp: lobby.inviteTimestamp,
+    gameStartedAt: lobby.gameStartedAt,
   };
 }
 
@@ -74,7 +96,7 @@ router.post("/teams/:teamId/cancel-ready", (req, res) => {
 // Called when game actually starts to clear readiness
 router.post("/teams/:teamId/reset-lobby", (req, res) => {
   const teamId = Number(req.params.teamId);
-  teamLobbies.set(teamId, { ready: new Set(), countdownStart: null, inviteTimestamp: null });
+  teamLobbies.set(teamId, { ready: new Set(), countdownStart: null, inviteTimestamp: null, gameStartedAt: null });
   res.json({ ok: true });
 });
 

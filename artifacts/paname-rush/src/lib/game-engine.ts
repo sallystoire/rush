@@ -80,6 +80,7 @@ export interface GameState {
     vy: number;
     color: string;
     isGrounded: boolean;
+    jumpsRemaining: number;
   };
   platforms: Platform[];
   trains: Train[];
