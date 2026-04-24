@@ -15,7 +15,7 @@ interface LobbyState {
 }
 const teamLobbies = new Map<number, LobbyState>();
 
-const COUNTDOWN_MS = 20_000;
+const COUNTDOWN_MS = 10_000;
 const GAME_STARTED_GRACE_MS = 60_000;
 
 function getLobby(teamId: number): LobbyState {

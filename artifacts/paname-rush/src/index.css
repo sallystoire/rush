@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Press+Start+2P&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Lilita+One&family=Press+Start+2P&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
 
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -92,10 +92,10 @@
   --input: 240 10% 15%;
   --ring: 348 83% 53%;
   
-  --app-font-sans: 'Space Mono', monospace;
-  --app-font-pixel: 'Press Start 2P', cursive;
-  --app-font-mono: 'Space Mono', monospace;
-  --app-font-graffiti: 'Bangers', 'Impact', system-ui, sans-serif;
+  --app-font-sans: 'Lilita One', 'Impact', system-ui, sans-serif;
+  --app-font-pixel: 'Lilita One', 'Impact', system-ui, sans-serif;
+  --app-font-mono: 'Lilita One', 'Space Mono', monospace;
+  --app-font-graffiti: 'Lilita One', 'Bangers', 'Impact', system-ui, sans-serif;
   --radius: 0; /* Square edges for retro feel */
 }
 

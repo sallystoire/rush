@@ -27,7 +27,7 @@ import {
   type LobbyState,
 } from "@/lib/team-api";
 
-const COUNTDOWN_SECONDS = 20;
+const COUNTDOWN_SECONDS = 10;
 
 export default function GameMode() {
   const [, setLocation] = useLocation();
