@@ -18,6 +18,21 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
 
+export type ExtraHeadersGetter = () =>
+  | Promise<Record<string, string> | null | undefined>
+  | Record<string, string> | null | undefined;
+
+let _extraHeadersGetter: ExtraHeadersGetter | null = null;
+
+/**
+ * Register a getter that supplies extra headers attached to every fetch.
+ * Useful for app-specific headers like `x-player-id`.
+ * Pass `null` to clear.
+ */
+export function setExtraHeadersGetter(getter: ExtraHeadersGetter | null): void {
+  _extraHeadersGetter = getter;
+}
+
 /**
  * Set a base URL that is prepended to every relative request URL
  * (i.e. paths that start with `/`).
@@ -355,6 +370,19 @@ export async function customFetch<T = unknown>(
     const token = await _authTokenGetter();
     if (token) {
       headers.set("authorization", `Bearer ${token}`);
+    }
+  }
+
+  // Attach any application-defined extra headers (e.g. x-player-id) without
+  // overriding headers that the caller has already set explicitly.
+  if (_extraHeadersGetter) {
+    const extras = await _extraHeadersGetter();
+    if (extras) {
+      for (const [key, value] of Object.entries(extras)) {
+        if (!headers.has(key) && value != null) {
+          headers.set(key, value);
+        }
+      }
     }
   }
 

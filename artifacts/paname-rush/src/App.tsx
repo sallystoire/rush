@@ -7,6 +7,7 @@ import Home from "@/pages/home";
 import GameMode from "@/pages/game-mode";
 import Leaderboard from "@/pages/leaderboard";
 import Game from "@/pages/game";
+import Admin from "@/pages/admin";
 import { DiscordProvider, useDiscord } from "@/hooks/use-discord";
 
 const queryClient = new QueryClient();
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/game-mode" component={GameMode} />
       <Route path="/leaderboard" component={Leaderboard} />
       <Route path="/game" component={Game} />
+      <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
     </Switch>
   );

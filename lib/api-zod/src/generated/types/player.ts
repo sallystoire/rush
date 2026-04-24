@@ -14,5 +14,8 @@ export interface Player {
   level: number;
   bestTime?: number;
   teamId?: number | null;
+  discordId?: string | null;
+  banned: boolean;
+  coins: number;
   createdAt: string;
 }

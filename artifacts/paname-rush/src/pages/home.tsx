@@ -25,13 +25,16 @@ export default function Home() {
   const [autoSyncing, setAutoSyncing] = useState(false);
 
   const { player, setPlayer } = useAuth();
-  const { inside: insideDiscord, user: discordUser } = useDiscord();
+  const { inside: insideDiscord, user: discordUser, accessToken: discordAccessToken } = useDiscord();
   const createPlayer = useCreatePlayer();
 
   useEffect(() => {
     if (!insideDiscord || !discordUser) return;
     const desiredName = discordUser.global_name || discordUser.username;
-    if (player && player.username === desiredName) return;
+    // Re-sync once even when names match if we don't yet have the verified
+    // discordId on the local player record (needed for admin gating).
+    const needsDiscordSync = !player?.discordId;
+    if (player && player.username === desiredName && !needsDiscordSync) return;
     if (autoSyncing || createPlayer.isPending) return;
 
     setAutoSyncing(true);
@@ -40,7 +43,14 @@ export default function Home() {
       : undefined;
 
     createPlayer.mutate(
-      { data: { username: desiredName, color: pickColor(), avatarUrl } },
+      {
+        data: {
+          username: desiredName,
+          color: pickColor(),
+          avatarUrl,
+          discordAccessToken: discordAccessToken ?? undefined,
+        },
+      },
       {
         onSuccess: (synced) => {
           setPlayer(synced);
@@ -49,7 +59,7 @@ export default function Home() {
         onError: () => setAutoSyncing(false),
       }
     );
-  }, [insideDiscord, discordUser, player, autoSyncing, createPlayer, setPlayer]);
+  }, [insideDiscord, discordUser, discordAccessToken, player, autoSyncing, createPlayer, setPlayer]);
 
   const handlePlay = () => {
     if (player) {

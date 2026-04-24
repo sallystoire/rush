@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, real, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, real, timestamp, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -10,6 +10,9 @@ export const playersTable = pgTable("players", {
   level: integer("level").notNull().default(1),
   bestTime: real("best_time"),
   teamId: integer("team_id"),
+  discordId: text("discord_id").unique(),
+  banned: boolean("banned").notNull().default(false),
+  coins: integer("coins").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

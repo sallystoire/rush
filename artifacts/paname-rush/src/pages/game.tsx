@@ -19,11 +19,29 @@ import {
 } from "@workspace/api-client-react";
 import CinematicChapter1 from "@/components/cinematic-chapter1";
 import CinematicChapter2 from "@/components/cinematic-chapter2";
+import { isAdminPlayer } from "@/lib/admin";
+import { SkipForward, SkipBack } from "lucide-react";
 
 const CINEMATIC_CHAPTER1_KEY = "paname:cinematic-chapter1-seen";
 const CINEMATIC_CHAPTER2_KEY = "paname:cinematic-chapter2-seen";
 
 const croustyImgUrl = `${import.meta.env.BASE_URL}images/crousty.png`;
+const kingdomBgUrl = `${import.meta.env.BASE_URL}images/bg-kingdom.png`;
+
+// Module-level image cache for the kingdom (levels 1-4) background. Loaded
+// once when the module first imports and reused across mounts.
+let _kingdomBgImg: HTMLImageElement | null = null;
+let _kingdomBgLoaded = false;
+function getKingdomBg(): HTMLImageElement | null {
+  if (typeof Image === "undefined") return null;
+  if (_kingdomBgImg === null) {
+    const img = new Image();
+    img.onload = () => { _kingdomBgLoaded = true; };
+    img.src = kingdomBgUrl;
+    _kingdomBgImg = img;
+  }
+  return _kingdomBgLoaded ? _kingdomBgImg : null;
+}
 
 // ──────────────────────────────────────────────────────────────
 // Themed sky / background
@@ -69,45 +87,21 @@ function drawSky(
     }
   }
 
-  // Kingdom — distant brown mountain silhouette + soft sun glow
+  // Kingdom — replace the procedural mountains with the painted kingdom
+  // background. Drawn in screen space so the parallax sky stays put while
+  // the camera scrolls. Falls back to the gradient already painted above
+  // until the image finishes loading.
   if (theme === "kingdom") {
-    // Sun halo near top-right
-    const sunX = w * 0.78, sunY = h * 0.22;
-    const sunGrad = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, 180);
-    sunGrad.addColorStop(0, "rgba(255, 240, 170, 0.55)");
-    sunGrad.addColorStop(1, "rgba(255, 240, 170, 0)");
-    ctx.fillStyle = sunGrad;
-    ctx.fillRect(0, 0, w, h * 0.6);
-
-    // Far mountain ridge (deep brown, low alpha)
-    ctx.fillStyle = "rgba(99, 56, 24, 0.55)";
-    ctx.beginPath();
-    const horizon = h * 0.62;
-    ctx.moveTo(0, horizon);
-    const peaks = 8;
-    for (let i = 0; i <= peaks; i++) {
-      const px = (w / peaks) * i;
-      const py = horizon - 70 - Math.abs(Math.sin(i * 1.7)) * 60;
-      ctx.lineTo(px, py);
+    const bg = getKingdomBg();
+    if (bg && bg.complete && bg.naturalWidth > 0) {
+      // Cover the canvas while preserving aspect ratio (centered crop).
+      const iw = bg.naturalWidth, ih = bg.naturalHeight;
+      const scale = Math.max(w / iw, h / ih);
+      const dw = iw * scale, dh = ih * scale;
+      const dx = (w - dw) / 2;
+      const dy = (h - dh) / 2;
+      ctx.drawImage(bg, dx, dy, dw, dh);
     }
-    ctx.lineTo(w, horizon);
-    ctx.closePath();
-    ctx.fill();
-
-    // Closer mountain ridge (warmer brown)
-    ctx.fillStyle = "rgba(132, 78, 35, 0.75)";
-    ctx.beginPath();
-    const horizon2 = h * 0.7;
-    ctx.moveTo(0, horizon2);
-    const peaks2 = 6;
-    for (let i = 0; i <= peaks2; i++) {
-      const px = (w / peaks2) * i + 30;
-      const py = horizon2 - 50 - Math.abs(Math.cos(i * 2.1)) * 45;
-      ctx.lineTo(px, py);
-    }
-    ctx.lineTo(w, horizon2);
-    ctx.closePath();
-    ctx.fill();
   }
 }
 
@@ -1533,6 +1527,21 @@ export default function Game() {
     initLevel(currentLevel + 1, 1);
   }, [initLevel]);
 
+  // ── Admin-only navigation: jump forward/back a level mid-game and persist
+  // the new level on the player so it sticks on next session.
+  const adminJumpLevel = useCallback((delta: number) => {
+    if (!player || !isAdminPlayer(player)) return;
+    if (!gameStateRef.current) return;
+    const target = Math.max(1, gameStateRef.current.level + delta);
+    initLevel(target, 1);
+    updateProgress.mutate(
+      { playerId: player.id, data: { level: target } },
+      {
+        onSuccess: (updatedPlayer) => setPlayer(updatedPlayer),
+      }
+    );
+  }, [player, initLevel, updateProgress, setPlayer]);
+
   // Keep refs in sync with the latest callbacks so the rAF loop sees fresh state
   useEffect(() => { winRef.current = win; }, [win]);
   useEffect(() => { dieRef.current = die; }, [die]);
@@ -1804,6 +1813,31 @@ export default function Game() {
         </div>
 
         <div className="flex items-center gap-2">
+          {player && isAdminPlayer(player) && (
+            <>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 border-2 border-red-500 text-red-300 hover:bg-red-500/20"
+                onClick={() => adminJumpLevel(-1)}
+                disabled={uiState.level <= 1}
+                title="Niveau précédent (admin)"
+                data-testid="admin-prev-level"
+              >
+                <SkipBack className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 border-2 border-red-500 text-red-300 hover:bg-red-500/20"
+                onClick={() => adminJumpLevel(1)}
+                title="Niveau suivant (admin)"
+                data-testid="admin-next-level"
+              >
+                <SkipForward className="h-4 w-4" />
+              </Button>
+            </>
+          )}
           {player && (
             <>
               <span className="graffiti-text text-sm hidden lg:block">{player.username}</span>

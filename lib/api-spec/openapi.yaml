@@ -403,6 +403,9 @@ components:
           type: string
         color:
           type: string
+        discordAccessToken:
+          type: string
+          description: Optional Discord access token. When provided, the server fetches the verified Discord user and stores their snowflake ID on the player record (for admin gating).
       required:
         - username
 
@@ -424,6 +427,13 @@ components:
         teamId:
           type: integer
           nullable: true
+        discordId:
+          type: string
+          nullable: true
+        banned:
+          type: boolean
+        coins:
+          type: integer
         createdAt:
           type: string
       required:
@@ -431,6 +441,8 @@ components:
         - username
         - color
         - level
+        - banned
+        - coins
         - createdAt
 
     UpdateProgressBody:
@@ -568,7 +580,7 @@ components:
           type: string
         boostType:
           type: string
-          enum: [skip_parcours, skip_level]
+          enum: [skip_parcours, skip_level, coins, protection_parcours, protection_level]
         value:
           type: integer
           default: 1

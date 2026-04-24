@@ -10,4 +10,6 @@ export interface CreatePlayerBody {
   username: string;
   avatarUrl?: string;
   color?: string;
+  /** Optional Discord access token. When provided, the server fetches the verified Discord user and stores their snowflake ID on the player record (for admin gating). */
+  discordAccessToken?: string;
 }

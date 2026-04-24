@@ -21,6 +21,12 @@ export const CreatePlayerBody = zod.object({
   username: zod.string(),
   avatarUrl: zod.string().optional(),
   color: zod.string().optional(),
+  discordAccessToken: zod
+    .string()
+    .optional()
+    .describe(
+      "Optional Discord access token. When provided, the server fetches the verified Discord user and stores their snowflake ID on the player record (for admin gating).",
+    ),
 });
 
 export const CreatePlayerResponse = zod.object({
@@ -31,6 +37,9 @@ export const CreatePlayerResponse = zod.object({
   level: zod.number(),
   bestTime: zod.number().optional(),
   teamId: zod.number().nullish(),
+  discordId: zod.string().nullish(),
+  banned: zod.boolean(),
+  coins: zod.number(),
   createdAt: zod.string(),
 });
 
@@ -49,6 +58,9 @@ export const GetPlayerResponse = zod.object({
   level: zod.number(),
   bestTime: zod.number().optional(),
   teamId: zod.number().nullish(),
+  discordId: zod.string().nullish(),
+  banned: zod.boolean(),
+  coins: zod.number(),
   createdAt: zod.string(),
 });
 
@@ -72,6 +84,9 @@ export const UpdatePlayerProgressResponse = zod.object({
   level: zod.number(),
   bestTime: zod.number().optional(),
   teamId: zod.number().nullish(),
+  discordId: zod.string().nullish(),
+  banned: zod.boolean(),
+  coins: zod.number(),
   createdAt: zod.string(),
 });
 
@@ -102,6 +117,9 @@ export const ListTeamsResponseItem = zod.object({
       level: zod.number(),
       bestTime: zod.number().optional(),
       teamId: zod.number().nullish(),
+      discordId: zod.string().nullish(),
+      banned: zod.boolean(),
+      coins: zod.number(),
       createdAt: zod.string(),
     }),
   ),
@@ -139,6 +157,9 @@ export const CreateTeamResponse = zod.object({
       level: zod.number(),
       bestTime: zod.number().optional(),
       teamId: zod.number().nullish(),
+      discordId: zod.string().nullish(),
+      banned: zod.boolean(),
+      coins: zod.number(),
       createdAt: zod.string(),
     }),
   ),
@@ -169,6 +190,9 @@ export const GetTeamResponse = zod.object({
       level: zod.number(),
       bestTime: zod.number().optional(),
       teamId: zod.number().nullish(),
+      discordId: zod.string().nullish(),
+      banned: zod.boolean(),
+      coins: zod.number(),
       createdAt: zod.string(),
     }),
   ),
@@ -204,6 +228,9 @@ export const UpdateTeamResponse = zod.object({
       level: zod.number(),
       bestTime: zod.number().optional(),
       teamId: zod.number().nullish(),
+      discordId: zod.string().nullish(),
+      banned: zod.boolean(),
+      coins: zod.number(),
       createdAt: zod.string(),
     }),
   ),
@@ -238,6 +265,9 @@ export const JoinTeamResponse = zod.object({
       level: zod.number(),
       bestTime: zod.number().optional(),
       teamId: zod.number().nullish(),
+      discordId: zod.string().nullish(),
+      banned: zod.boolean(),
+      coins: zod.number(),
       createdAt: zod.string(),
     }),
   ),
@@ -335,7 +365,13 @@ export const createCodeBodyValueDefault = 1;
 
 export const CreateCodeBody = zod.object({
   code: zod.string(),
-  boostType: zod.enum(["skip_parcours", "skip_level"]),
+  boostType: zod.enum([
+    "skip_parcours",
+    "skip_level",
+    "coins",
+    "protection_parcours",
+    "protection_level",
+  ]),
   value: zod.number().default(createCodeBodyValueDefault),
 });
 

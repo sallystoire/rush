@@ -12,4 +12,7 @@ export type CreateCodeBodyBoostType =
 export const CreateCodeBodyBoostType = {
   skip_parcours: "skip_parcours",
   skip_level: "skip_level",
+  coins: "coins",
+  protection_parcours: "protection_parcours",
+  protection_level: "protection_level",
 } as const;

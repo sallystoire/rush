@@ -19,8 +19,9 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Plus, Play, Trophy, Key, Users, Settings,
-  Crown, LogOut, UserMinus, ArrowRightLeft, Send, CheckCircle
+  Crown, LogOut, UserMinus, ArrowRightLeft, Send, CheckCircle, Shield
 } from "lucide-react";
+import { isAdminPlayer } from "@/lib/admin";
 import {
   getLobby, markReady, cancelReady, sendInvite,
   kickMember, transferOwnership, updateTeamSettings,
@@ -388,6 +389,17 @@ export default function GameMode() {
         >
           <Key className="mr-2 h-4 w-4" /> CODE BOOST
         </Button>
+
+        {isAdminPlayer(player) && (
+          <Link href="/admin" className="w-full">
+            <Button
+              variant="outline"
+              className="w-full justify-start h-12 text-base border-2 border-red-500 text-red-400 hover:bg-red-500/10 pixel-text drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]"
+            >
+              <Shield className="mr-2 h-4 w-4" /> ADMIN
+            </Button>
+          </Link>
+        )}
 
         {/* Player card */}
         <div className="mt-auto p-3 border-2 border-border bg-card">

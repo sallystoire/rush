@@ -13,6 +13,8 @@ export interface CreatePlayerBody {
   username: string;
   avatarUrl?: string;
   color?: string;
+  /** Optional Discord access token. When provided, the server fetches the verified Discord user and stores their snowflake ID on the player record (for admin gating). */
+  discordAccessToken?: string;
 }
 
 export interface Player {
@@ -23,6 +25,9 @@ export interface Player {
   level: number;
   bestTime?: number;
   teamId?: number | null;
+  discordId?: string | null;
+  banned: boolean;
+  coins: number;
   createdAt: string;
 }
 
@@ -87,6 +92,9 @@ export type CreateCodeBodyBoostType =
 export const CreateCodeBodyBoostType = {
   skip_parcours: "skip_parcours",
   skip_level: "skip_level",
+  coins: "coins",
+  protection_parcours: "protection_parcours",
+  protection_level: "protection_level",
 } as const;
 
 export interface CreateCodeBody {

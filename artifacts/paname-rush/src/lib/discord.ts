@@ -30,6 +30,10 @@ let _auth: {
   user: { id: string; username: string; global_name?: string; avatar?: string };
 } | null = null;
 
+export function getDiscordAccessToken(): string | null {
+  return _auth?.access_token ?? null;
+}
+
 export async function initDiscordSDK() {
   const clientId = ENV_CLIENT_ID || (await fetchRuntimeClientId());
   if (!clientId) {

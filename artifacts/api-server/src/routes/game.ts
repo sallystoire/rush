@@ -28,11 +28,21 @@ router.post("/game/start", async (req, res) => {
 
   const { playerId, mode, teamId } = parsed.data;
 
+  // Block banned players from starting any session.
+  const [requestingPlayer] = await db.select().from(playersTable).where(eq(playersTable.id, playerId)).limit(1);
+  if (!requestingPlayer) {
+    res.status(404).json({ error: "Joueur introuvable" });
+    return;
+  }
+  if (requestingPlayer.banned) {
+    res.status(403).json({ error: "Tu es banni du jeu. Contacte un administrateur." });
+    return;
+  }
+
   // Team mode always starts at level 1 so all players are on the same map
   let startLevel = 1;
   if (mode !== "team") {
-    const [player] = await db.select().from(playersTable).where(eq(playersTable.id, playerId)).limit(1);
-    startLevel = player?.level ?? 1;
+    startLevel = requestingPlayer.level ?? 1;
   }
 
   // Reset any previous advance state so everyone starts fresh from level 1 parcours 1

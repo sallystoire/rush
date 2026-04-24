@@ -7,6 +7,25 @@ import { playerBoostsTable } from "@workspace/db";
 
 const router = Router();
 
+interface DiscordUserResponse {
+  id: string;
+  username: string;
+  global_name?: string | null;
+  avatar?: string | null;
+}
+
+async function fetchDiscordUser(accessToken: string): Promise<DiscordUserResponse | null> {
+  try {
+    const r = await fetch("https://discord.com/api/users/@me", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!r.ok) return null;
+    return (await r.json()) as DiscordUserResponse;
+  } catch {
+    return null;
+  }
+}
+
 router.post("/players", async (req, res) => {
   const parsed = CreatePlayerBody.safeParse(req.body);
   if (!parsed.success) {
@@ -14,11 +33,40 @@ router.post("/players", async (req, res) => {
     return;
   }
 
-  const { username, avatarUrl, color } = parsed.data;
+  const { username, avatarUrl, color, discordAccessToken } = parsed.data;
 
-  const existing = await db.select().from(playersTable).where(eq(playersTable.username, username)).limit(1);
-  if (existing.length > 0) {
-    res.json(existing[0]);
+  // If a Discord access token was provided, verify it server-side and capture
+  // the snowflake ID so we can store it on the player record. This is the
+  // ONLY way the server trusts a Discord identity (and gates admin access).
+  let verifiedDiscordId: string | null = null;
+  if (discordAccessToken) {
+    const discordUser = await fetchDiscordUser(discordAccessToken);
+    if (discordUser?.id) {
+      verifiedDiscordId = discordUser.id;
+    }
+  }
+
+  // Prefer match by Discord snowflake (stable identity); fall back to username.
+  let existing: typeof playersTable.$inferSelect | undefined;
+  if (verifiedDiscordId) {
+    [existing] = await db.select().from(playersTable).where(eq(playersTable.discordId, verifiedDiscordId)).limit(1);
+  }
+  if (!existing) {
+    [existing] = await db.select().from(playersTable).where(eq(playersTable.username, username)).limit(1);
+  }
+
+  if (existing) {
+    // Backfill Discord ID on first authenticated visit so existing players
+    // can become admin without losing their progress.
+    if (verifiedDiscordId && !existing.discordId) {
+      const [updated] = await db.update(playersTable)
+        .set({ discordId: verifiedDiscordId })
+        .where(eq(playersTable.id, existing.id))
+        .returning();
+      res.json(updated);
+      return;
+    }
+    res.json(existing);
     return;
   }
 
@@ -26,6 +74,7 @@ router.post("/players", async (req, res) => {
     username,
     avatarUrl: avatarUrl || null,
     color: color || "#FF5733",
+    discordId: verifiedDiscordId,
   }).returning();
 
   res.json(player);
@@ -70,7 +119,9 @@ router.put("/players/:playerId/progress", async (req, res) => {
   }
 
   const updateData: Record<string, unknown> = {};
-  if (level > (existing.level || 1)) {
+  // Admins (and code-skip flows) may go down a level too — accept any level
+  // change when it differs, but keep "best progress wins" for ordinary play.
+  if (level !== existing.level) {
     updateData.level = level;
   }
   if (bestTime !== undefined && (existing.bestTime === null || bestTime < existing.bestTime)) {

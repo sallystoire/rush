@@ -1,12 +1,19 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { boostCodesTable, playerBoostsTable, codeRedemptionsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { boostCodesTable, playerBoostsTable, codeRedemptionsTable, playersTable } from "@workspace/db";
+import { eq, and, sql } from "drizzle-orm";
 import { CreateCodeBody, RedeemCodeBody } from "@workspace/api-zod";
+import { requireAdmin } from "../middlewares/admin";
 
 const router = Router();
 
-router.post("/codes", async (req, res) => {
+// Admin-only: create a boost code. Supported boostType values:
+//   - skip_parcours        (stored as a usable boost; value = parcours to skip)
+//   - skip_level           (stored as a usable boost; value = levels to skip)
+//   - coins                (instantly granted on redemption; value = coins added)
+//   - protection_parcours  (stored as a usable boost; value = parcours protected)
+//   - protection_level     (stored as a usable boost; value = levels protected)
+router.post("/codes", requireAdmin, async (req, res) => {
   const parsed = CreateCodeBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -53,7 +60,7 @@ router.post("/codes/redeem", async (req, res) => {
     .limit(1);
 
   if (existingRedemption.length > 0) {
-    res.json({ success: false, message: "Tu as deja utilise ce code" });
+    res.json({ success: false, message: "Tu as déjà utilisé ce code" });
     return;
   }
 
@@ -61,6 +68,18 @@ router.post("/codes/redeem", async (req, res) => {
     playerId,
     codeId: boostCode.id,
   });
+
+  // Coins are credited immediately and no usable boost is recorded.
+  if (boostCode.boostType === "coins") {
+    await db.update(playersTable)
+      .set({ coins: sql`${playersTable.coins} + ${boostCode.value}` })
+      .where(eq(playersTable.id, playerId));
+    res.json({
+      success: true,
+      message: `Code activé ! +${boostCode.value} coins`,
+    });
+    return;
+  }
 
   const [boost] = await db.insert(playerBoostsTable).values({
     playerId,
@@ -72,7 +91,7 @@ router.post("/codes/redeem", async (req, res) => {
 
   res.json({
     success: true,
-    message: "Code active avec succes !",
+    message: "Code activé avec succès !",
     boost,
   });
 });
