@@ -78,35 +78,28 @@ export default function CinematicChapter1({ onComplete }: CinematicChapter1Props
 
   return (
     <div
-      className="absolute inset-0 z-40 flex items-center justify-center bg-black overflow-hidden"
+      className="fixed inset-0 z-[100] bg-black overflow-hidden"
       onClick={ensureMusic}
       role="dialog"
       aria-label="Cinématique Chapitre 1"
     >
-      {/* Subtle vignette + drifting golden glow for atmosphere */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(0,0,0,0.85) 100%)",
-        }}
-      />
-      <div
-        className="absolute -top-20 -left-20 w-[500px] h-[500px] rounded-full blur-3xl opacity-30 pointer-events-none animate-cine-drift"
-        style={{ background: "radial-gradient(circle, #facc15 0%, transparent 70%)" }}
-      />
-      <div
-        className="absolute -bottom-32 -right-20 w-[600px] h-[600px] rounded-full blur-3xl opacity-25 pointer-events-none animate-cine-drift-rev"
-        style={{ background: "radial-gradient(circle, #f97316 0%, transparent 70%)" }}
-      />
-
-      {/* Slide image with Ken-Burns style zoom + fade-in per slide */}
+      {/* Full-bleed slide image — fills the entire viewport.
+          Ken-Burns style zoom + fade-in per slide. */}
       <img
         key={animKey}
         src={slide.src}
         alt={slide.alt}
-        className="relative max-w-[95vw] max-h-[88vh] object-contain shadow-[0_0_60px_rgba(250,204,21,0.35)] animate-cine-in"
+        className="absolute inset-0 w-full h-full object-cover animate-cine-in"
         draggable={false}
+      />
+
+      {/* Soft vignette so the button reads cleanly against any artwork */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.55) 100%)",
+        }}
       />
 
       {/* Slide progress dots */}
@@ -115,18 +108,19 @@ export default function CinematicChapter1({ onComplete }: CinematicChapter1Props
           <span
             key={i}
             className={[
-              "w-3 h-3 rounded-full border-2 border-white/70 transition-all",
+              "w-3 h-3 rounded-full border-2 border-white/80 transition-all",
               i === index
                 ? "bg-yellow-400 scale-110 shadow-[0_0_8px_rgba(250,204,21,0.9)]"
                 : i < index
-                ? "bg-white/60"
+                ? "bg-white/70"
                 : "bg-white/10",
             ].join(" ")}
           />
         ))}
       </div>
 
-      {/* "Suite" button — top-right blue rectangle */}
+      {/* "Suite" button — sits inside the image at the bottom-right,
+          styled so it feels like part of the artwork (comic panel). */}
       <button
         type="button"
         onClick={(e) => {
@@ -134,14 +128,16 @@ export default function CinematicChapter1({ onComplete }: CinematicChapter1Props
           handleNext();
         }}
         className={[
-          "absolute top-4 right-4 z-20 px-7 py-3 select-none",
+          "absolute bottom-6 right-6 sm:bottom-10 sm:right-10 z-20",
+          "px-8 py-4 select-none",
           "bg-gradient-to-b from-blue-500 to-blue-700",
-          "text-white graffiti-text text-2xl tracking-widest",
+          "text-white graffiti-text text-2xl sm:text-3xl tracking-widest",
           "border-4 border-yellow-300 rounded-md",
-          "shadow-[0_4px_0_0_#1e3a8a,0_0_20px_rgba(59,130,246,0.65)]",
+          "shadow-[0_6px_0_0_#1e3a8a,0_0_24px_rgba(59,130,246,0.7)]",
           "hover:from-blue-400 hover:to-blue-600 hover:scale-105",
-          "active:translate-y-[2px] active:shadow-[0_2px_0_0_#1e3a8a,0_0_16px_rgba(59,130,246,0.6)]",
+          "active:translate-y-[3px] active:shadow-[0_3px_0_0_#1e3a8a,0_0_18px_rgba(59,130,246,0.6)]",
           "transition-transform duration-100",
+          "animate-cine-pulse",
         ].join(" ")}
         aria-label={isLast ? "Commencer le niveau" : "Image suivante"}
       >
@@ -154,17 +150,12 @@ export default function CinematicChapter1({ onComplete }: CinematicChapter1Props
           60%  { opacity: 1; filter: blur(0); }
           100% { opacity: 1; transform: scale(1.0); filter: blur(0); }
         }
-        @keyframes cine-drift {
-          0%, 100% { transform: translate(0, 0); }
-          50%      { transform: translate(40px, 30px); }
+        @keyframes cine-pulse {
+          0%, 100% { box-shadow: 0 6px 0 0 #1e3a8a, 0 0 24px rgba(59,130,246,0.7); }
+          50%      { box-shadow: 0 6px 0 0 #1e3a8a, 0 0 38px rgba(250,204,21,0.85); }
         }
-        @keyframes cine-drift-rev {
-          0%, 100% { transform: translate(0, 0); }
-          50%      { transform: translate(-40px, -30px); }
-        }
-        .animate-cine-in       { animation: cine-in 1.6s ease-out both; }
-        .animate-cine-drift    { animation: cine-drift 9s ease-in-out infinite; }
-        .animate-cine-drift-rev{ animation: cine-drift-rev 11s ease-in-out infinite; }
+        .animate-cine-in    { animation: cine-in 1.6s ease-out both; }
+        .animate-cine-pulse { animation: cine-pulse 1.8s ease-in-out infinite; }
       `}</style>
     </div>
   );
