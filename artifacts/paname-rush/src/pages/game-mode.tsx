@@ -26,6 +26,7 @@ import {
   kickMember, transferOwnership, updateTeamSettings,
   type LobbyState,
 } from "@/lib/team-api";
+import { playReady, playUnready, playTick, playFinalTick, playGo } from "@/lib/sfx";
 
 const COUNTDOWN_SECONDS = 10;
 
@@ -62,6 +63,7 @@ export default function GameMode() {
   const [gameStarted, setGameStarted] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const gameStartedRef = useRef(false);
+  const lastTickRef = useRef<number | null>(null);
 
   // ── API hooks ─────────────────────────────────────────────────
   const { data: teams = [], isLoading: isLoadingTeams } = useListTeams(
@@ -108,15 +110,24 @@ export default function GameMode() {
       if (state.countdownStart !== null && state.gameStartedAt === null) {
         const elapsed = (Date.now() - state.countdownStart) / 1000;
         const remaining = Math.max(0, COUNTDOWN_SECONDS - elapsed);
-        setCountdown(Math.ceil(remaining));
+        const sec = Math.ceil(remaining);
+        setCountdown(sec);
+        // Tick sound on each new second of the countdown
+        if (lastTickRef.current !== sec && sec > 0 && sec <= COUNTDOWN_SECONDS) {
+          if (sec <= 3) playFinalTick();
+          else playTick();
+          lastTickRef.current = sec;
+        }
       } else {
         setCountdown(null);
+        lastTickRef.current = null;
       }
 
       // Game start signal — driven by the server so every member transitions together
       if (state.gameStartedAt !== null && !gameStartedRef.current) {
         gameStartedRef.current = true;
         setGameStarted(true);
+        playGo();
         setLocation(`/game?mode=team&teamId=${teamId}`);
       }
 
@@ -227,10 +238,12 @@ export default function GameMode() {
         const state = await cancelReady(teamId, player.id);
         setLobby(state);
         setIsReady(false);
+        playUnready();
       } else {
         const state = await markReady(teamId, player.id);
         setLobby(state);
         setIsReady(true);
+        playReady();
       }
     } catch (err) {
       toast({ title: "Erreur", description: String(err), variant: "destructive" });
