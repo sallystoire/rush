@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -28,15 +28,22 @@ export default function Home() {
   const { inside: insideDiscord, user: discordUser, accessToken: discordAccessToken } = useDiscord();
   const createPlayer = useCreatePlayer();
 
+  // Remember the access token we already used to register the player so we
+  // never trigger a second auto-sync (and an infinite loop) if the server
+  // wasn't able to verify the Discord identity for any reason.
+  const syncedTokenRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!insideDiscord || !discordUser) return;
     const desiredName = discordUser.global_name || discordUser.username;
-    // Re-sync once even when names match if we don't yet have the verified
-    // discordId on the local player record (needed for admin gating).
-    const needsDiscordSync = !player?.discordId;
-    if (player && player.username === desiredName && !needsDiscordSync) return;
+
+    // Don't re-sync if we already attempted with this exact access token.
+    if (syncedTokenRef.current && syncedTokenRef.current === (discordAccessToken ?? "")) return;
+    // Skip when the local player already matches and is fully linked.
+    if (player && player.username === desiredName && player.discordId) return;
     if (autoSyncing || createPlayer.isPending) return;
 
+    syncedTokenRef.current = discordAccessToken ?? "";
     setAutoSyncing(true);
     const avatarUrl = discordUser.avatar
       ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`

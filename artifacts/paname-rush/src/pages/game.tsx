@@ -20,6 +20,7 @@ import {
 import CinematicChapter1 from "@/components/cinematic-chapter1";
 import CinematicChapter2 from "@/components/cinematic-chapter2";
 import { isAdminPlayer } from "@/lib/admin";
+import { recoverIfPlayerMissing } from "@/lib/api-init";
 import { SkipForward, SkipBack } from "lucide-react";
 
 const CINEMATIC_CHAPTER1_KEY = "paname:cinematic-chapter1-seen";
@@ -1179,8 +1180,17 @@ export default function Game() {
             initLevel(session.currentLevel, 1);
           }
         },
-        onError: () => {
+        onError: async (err) => {
           sessionStartedRef.current = false; // allow retry on error
+          // If the persisted player ID is stale (e.g. after a DB wipe), the
+          // server returns PLAYER_NOT_FOUND. Clear the local auth so the home
+          // screen can recreate the account and bounce the user back there.
+          const recovered = await recoverIfPlayerMissing(err);
+          if (recovered) {
+            toast({ title: "Compte expiré", description: "Reconnecte-toi pour reprendre la partie." });
+            setLocation("/");
+            return;
+          }
           toast({ title: "Erreur", description: "Impossible de demarrer la partie.", variant: "destructive" });
           setLocation("/game-mode");
         }

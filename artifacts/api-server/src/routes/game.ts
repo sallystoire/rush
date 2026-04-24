@@ -28,14 +28,17 @@ router.post("/game/start", async (req, res) => {
 
   const { playerId, mode, teamId } = parsed.data;
 
-  // Block banned players from starting any session.
+  // Look up the player. The local browser may persist a stale playerId (e.g.
+  // after a DB wipe / fresh deploy) — when that happens we return a special
+  // code so the frontend can clear its cached auth and recreate the player
+  // instead of leaving the user stuck with "Impossible de demarrer".
   const [requestingPlayer] = await db.select().from(playersTable).where(eq(playersTable.id, playerId)).limit(1);
   if (!requestingPlayer) {
-    res.status(404).json({ error: "Joueur introuvable" });
+    res.status(404).json({ error: "Joueur introuvable", code: "PLAYER_NOT_FOUND" });
     return;
   }
   if (requestingPlayer.banned) {
-    res.status(403).json({ error: "Tu es banni du jeu. Contacte un administrateur." });
+    res.status(403).json({ error: "Tu es banni du jeu. Contacte un administrateur.", code: "PLAYER_BANNED" });
     return;
   }
 
