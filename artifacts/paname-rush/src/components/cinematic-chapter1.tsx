@@ -4,16 +4,15 @@ import {
   startCinematicMusic,
   stopCinematicMusic,
 } from "@/lib/sfx";
-import img1 from "@assets/IMG_6485_1777014545626.png";
-import img2 from "@assets/IMG_6481_1777014545626.png";
-import img3 from "@assets/IMG_6482_1777014545626.png";
-import img4 from "@assets/IMG_6486_1777014545626.png";
 
+// Served from the public/ folder so production Docker builds (Railway) include
+// them — attached_assets/ is excluded by .dockerignore.
+const BASE = import.meta.env.BASE_URL;
 const SLIDES = [
-  { src: img1, alt: "Chapitre 1 : Maître Crousty" },
-  { src: img2, alt: "Maître Crousty a envahi la planète Terre" },
-  { src: img3, alt: "Vous devez traverser tout le royaume" },
-  { src: img4, alt: "Combattez en duel Maître Crousty" },
+  { src: `${BASE}images/cinematic-ch1/01-chapitre.png`, alt: "Chapitre 1 : Maître Crousty" },
+  { src: `${BASE}images/cinematic-ch1/02-crousty.png`, alt: "Maître Crousty a envahi la planète Terre" },
+  { src: `${BASE}images/cinematic-ch1/03-mission.png`, alt: "Vous devez traverser tout le royaume" },
+  { src: `${BASE}images/cinematic-ch1/04-duel.png`,    alt: "Combattez en duel Maître Crousty" },
 ];
 
 interface CinematicChapter1Props {
