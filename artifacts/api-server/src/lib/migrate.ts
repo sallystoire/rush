@@ -10,8 +10,15 @@ const SQL = `
     level      INTEGER NOT NULL DEFAULT 1,
     best_time  REAL,
     team_id    INTEGER,
+    discord_id TEXT UNIQUE,
+    banned     BOOLEAN NOT NULL DEFAULT FALSE,
+    coins      INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
   );
+
+  ALTER TABLE players ADD COLUMN IF NOT EXISTS discord_id TEXT UNIQUE;
+  ALTER TABLE players ADD COLUMN IF NOT EXISTS banned BOOLEAN NOT NULL DEFAULT FALSE;
+  ALTER TABLE players ADD COLUMN IF NOT EXISTS coins INTEGER NOT NULL DEFAULT 0;
 
   CREATE TABLE IF NOT EXISTS teams (
     id                  SERIAL PRIMARY KEY,
