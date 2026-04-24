@@ -96,7 +96,7 @@ export interface GameState {
   theme: LevelTheme;
 }
 
-export type LevelTheme = "metro" | "rooftops" | "boulevard" | "night";
+export type LevelTheme = "metro" | "rooftops" | "boulevard" | "night" | "kingdom";
 
 // Named levels — Paris-themed names for all 100 levels.
 export const LEVEL_NAMES: Record<number, string> = {
@@ -241,8 +241,11 @@ function mulberry32(seed: number) {
 }
 
 function pickTheme(level: number): LevelTheme {
+  // Chapter 1 (levels 1-4) — "Royaume de Maître Crousty".
+  // Matches the intro cinematic art direction (sandstone castle, bright sky).
+  if (level <= 4) return "kingdom";
   const themes: LevelTheme[] = ["boulevard", "metro", "rooftops", "night"];
-  return themes[(level - 1) % themes.length];
+  return themes[(level - 5) % themes.length];
 }
 
 export function getTotalParcours(level: number) {

@@ -33,6 +33,9 @@ function themePalette(theme: LevelTheme) {
       return { skyTop: "#fde68a", skyBot: "#fb7185", ground: "#7c2d12", glow: "#fbbf24" };
     case "night":
       return { skyTop: "#020617", skyBot: "#1e3a8a", ground: "#0f172a", glow: "#a5b4fc" };
+    case "kingdom":
+      // Royaume de Maître Crousty — sky blue → soft golden horizon, warm sandstone ground
+      return { skyTop: "#5cb8f0", skyBot: "#fde8b8", ground: "#92581f", glow: "#fcd34d" };
     case "boulevard":
     default:
       return { skyTop: "#7dd3fc", skyBot: "#fde68a", ground: "#27272a", glow: "#fde047" };
@@ -61,6 +64,47 @@ function drawSky(
       const tw = 1 + ((i + Math.floor(time * 2)) % 3 === 0 ? 1 : 0);
       ctx.fillRect(sx, sy, tw, tw);
     }
+  }
+
+  // Kingdom — distant brown mountain silhouette + soft sun glow
+  if (theme === "kingdom") {
+    // Sun halo near top-right
+    const sunX = w * 0.78, sunY = h * 0.22;
+    const sunGrad = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, 180);
+    sunGrad.addColorStop(0, "rgba(255, 240, 170, 0.55)");
+    sunGrad.addColorStop(1, "rgba(255, 240, 170, 0)");
+    ctx.fillStyle = sunGrad;
+    ctx.fillRect(0, 0, w, h * 0.6);
+
+    // Far mountain ridge (deep brown, low alpha)
+    ctx.fillStyle = "rgba(99, 56, 24, 0.55)";
+    ctx.beginPath();
+    const horizon = h * 0.62;
+    ctx.moveTo(0, horizon);
+    const peaks = 8;
+    for (let i = 0; i <= peaks; i++) {
+      const px = (w / peaks) * i;
+      const py = horizon - 70 - Math.abs(Math.sin(i * 1.7)) * 60;
+      ctx.lineTo(px, py);
+    }
+    ctx.lineTo(w, horizon);
+    ctx.closePath();
+    ctx.fill();
+
+    // Closer mountain ridge (warmer brown)
+    ctx.fillStyle = "rgba(132, 78, 35, 0.75)";
+    ctx.beginPath();
+    const horizon2 = h * 0.7;
+    ctx.moveTo(0, horizon2);
+    const peaks2 = 6;
+    for (let i = 0; i <= peaks2; i++) {
+      const px = (w / peaks2) * i + 30;
+      const py = horizon2 - 50 - Math.abs(Math.cos(i * 2.1)) * 45;
+      ctx.lineTo(px, py);
+    }
+    ctx.lineTo(w, horizon2);
+    ctx.closePath();
+    ctx.fill();
   }
 }
 
@@ -175,6 +219,33 @@ function drawPlatform(ctx: CanvasRenderingContext2D, plat: Platform, theme: Leve
     ctx.fillStyle = "rgba(0,0,0,0.15)";
     for (let i = 6; i < w; i += 14) {
       ctx.fillRect(x + i, y + 6, 1, h - 8);
+    }
+    return;
+  }
+
+  // Kingdom: warm sandstone block with mortar lines + grass top
+  if (theme === "kingdom") {
+    const grad = ctx.createLinearGradient(0, y, 0, y + h);
+    grad.addColorStop(0, "#d8a868");
+    grad.addColorStop(1, "#8a5524");
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, w, h);
+    // Grass top
+    ctx.fillStyle = "#3f9b3f";
+    ctx.fillRect(x, y, w, 5);
+    ctx.fillStyle = "#5fc35f";
+    ctx.fillRect(x, y, w, 2);
+    // Mortar lines — staggered brick pattern
+    ctx.fillStyle = "rgba(60, 30, 10, 0.45)";
+    const brickH = 18;
+    for (let row = 0; row * brickH < h; row++) {
+      const ry = y + 8 + row * brickH;
+      if (ry > y + h - 2) break;
+      ctx.fillRect(x, ry, w, 1);
+      const offset = row % 2 === 0 ? 0 : 22;
+      for (let bx = offset; bx < w; bx += 44) {
+        ctx.fillRect(x + bx, ry, 1, brickH);
+      }
     }
     return;
   }
@@ -368,6 +439,63 @@ function drawDecoration(
       break;
     }
     case "tower": {
+      if (theme === "kingdom") {
+        // Castle keep silhouette — sandstone walls, terracotta conical roof, red flag
+        const wallH = 170, wallW = 80;
+        // Wall body
+        const wallGrad = ctx.createLinearGradient(0, -wallH, 0, 0);
+        wallGrad.addColorStop(0, "#e0b074");
+        wallGrad.addColorStop(1, "#9a6028");
+        ctx.fillStyle = wallGrad;
+        ctx.fillRect(-wallW / 2, -wallH, wallW, wallH);
+        // Mortar lines
+        ctx.fillStyle = "rgba(60, 30, 10, 0.35)";
+        for (let row = 0; row < 8; row++) {
+          ctx.fillRect(-wallW / 2, -wallH + row * 22, wallW, 1);
+          const ofs = row % 2 === 0 ? 0 : 20;
+          for (let bx = ofs; bx < wallW; bx += 40) {
+            ctx.fillRect(-wallW / 2 + bx, -wallH + row * 22, 1, 22);
+          }
+        }
+        // Crenellations on the wall top
+        ctx.fillStyle = "#b8843e";
+        for (let i = 0; i < 5; i++) {
+          ctx.fillRect(-wallW / 2 + i * 18 + 2, -wallH - 8, 10, 8);
+        }
+        // Window
+        ctx.fillStyle = "#1a0f05";
+        ctx.fillRect(-6, -wallH + 60, 12, 22);
+        ctx.fillStyle = "#fde68a";
+        ctx.fillRect(-4, -wallH + 62, 8, 6);
+        // Conical terracotta roof on a smaller top tower
+        const topW = 44;
+        ctx.fillStyle = "#cd5a2e";
+        ctx.beginPath();
+        ctx.moveTo(-topW / 2 - 4, -wallH - 8);
+        ctx.lineTo(0, -wallH - 70);
+        ctx.lineTo(topW / 2 + 4, -wallH - 8);
+        ctx.closePath();
+        ctx.fill();
+        // Roof shading
+        ctx.fillStyle = "rgba(0,0,0,0.18)";
+        ctx.beginPath();
+        ctx.moveTo(0, -wallH - 70);
+        ctx.lineTo(topW / 2 + 4, -wallH - 8);
+        ctx.lineTo(4, -wallH - 8);
+        ctx.closePath();
+        ctx.fill();
+        // Flag pole + red banner
+        ctx.fillStyle = "#3f3a36";
+        ctx.fillRect(-1, -wallH - 100, 2, 32);
+        ctx.fillStyle = "#dc2626";
+        ctx.beginPath();
+        ctx.moveTo(1, -wallH - 96);
+        ctx.lineTo(20, -wallH - 90);
+        ctx.lineTo(1, -wallH - 84);
+        ctx.closePath();
+        ctx.fill();
+        break;
+      }
       // Mini Eiffel silhouette
       ctx.fillStyle = "rgba(31,41,55,0.85)";
       // Base wide → narrow top
@@ -417,6 +545,105 @@ function drawDecoration(
       const stableX = Math.abs(Math.round(seedX ?? x));
       const seed = stableX % 997;
 
+      // Kingdom — sandstone keep with crenellations, banner & terracotta roof
+      if (theme === "kingdom") {
+        const variants = [
+          { body: "#d4a06b", trim: "#a8702e", roof: "#cd5a2e", flag: "#dc2626" }, // warm sandstone, terracotta roof
+          { body: "#c89260", trim: "#8b5a23", roof: "#b04420", flag: "#dc2626" }, // darker sandstone
+          { body: "#e0b074", trim: "#9a6028", roof: "#e07033", flag: "#facc15" }, // light + golden flag
+        ];
+        const v = variants[seed % variants.length];
+        const bw = 64 + (seed % 4) * 14;
+        const bh = 110 + (seed % 6) * 22;
+
+        // Wall body with gradient
+        const grad = ctx.createLinearGradient(0, -bh, 0, 0);
+        grad.addColorStop(0, v.body);
+        grad.addColorStop(1, v.trim);
+        ctx.fillStyle = grad;
+        ctx.fillRect(-bw / 2, -bh, bw, bh);
+
+        // Mortar (faint brick lines)
+        ctx.fillStyle = "rgba(60, 30, 10, 0.30)";
+        const rows = Math.floor(bh / 20);
+        for (let r = 0; r < rows; r++) {
+          const ry = -bh + r * 20;
+          ctx.fillRect(-bw / 2, ry, bw, 1);
+          const ofs = r % 2 === 0 ? 0 : 18;
+          for (let bx = ofs; bx < bw; bx += 36) {
+            ctx.fillRect(-bw / 2 + bx, ry, 1, 20);
+          }
+        }
+
+        // Crenellations along the top
+        ctx.fillStyle = v.trim;
+        const merlons = Math.max(3, Math.floor(bw / 14));
+        for (let m = 0; m < merlons; m++) {
+          const mx = -bw / 2 + m * (bw / merlons);
+          if (m % 2 === 0) ctx.fillRect(mx, -bh - 6, bw / merlons - 1, 6);
+        }
+
+        // Tall arched window
+        ctx.fillStyle = "#1a0f05";
+        ctx.fillRect(-5, -bh + 38, 10, 24);
+        ctx.beginPath();
+        ctx.arc(0, -bh + 38, 5, Math.PI, 0);
+        ctx.fill();
+        // Window glow
+        ctx.fillStyle = "#fde68a";
+        ctx.fillRect(-3, -bh + 40, 6, 5);
+
+        // Side conical roof tower (every other building)
+        if (seed % 2 === 0) {
+          const tx = bw / 2 - 6;
+          const tWallH = Math.min(70, bh * 0.45);
+          // Tower body
+          ctx.fillStyle = v.body;
+          ctx.fillRect(tx, -bh - tWallH, 18, tWallH);
+          ctx.strokeStyle = "rgba(60, 30, 10, 0.4)";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(tx, -bh - tWallH, 18, tWallH);
+          // Conical roof
+          ctx.fillStyle = v.roof;
+          ctx.beginPath();
+          ctx.moveTo(tx - 3, -bh - tWallH);
+          ctx.lineTo(tx + 9, -bh - tWallH - 30);
+          ctx.lineTo(tx + 21, -bh - tWallH);
+          ctx.closePath();
+          ctx.fill();
+          // Flag pole + banner
+          ctx.fillStyle = "#3f3a36";
+          ctx.fillRect(tx + 8, -bh - tWallH - 50, 2, 22);
+          ctx.fillStyle = v.flag;
+          ctx.beginPath();
+          ctx.moveTo(tx + 10, -bh - tWallH - 48);
+          ctx.lineTo(tx + 22, -bh - tWallH - 43);
+          ctx.lineTo(tx + 10, -bh - tWallH - 38);
+          ctx.closePath();
+          ctx.fill();
+        }
+
+        // Hanging red banner on the wall (signature of the cinematic art)
+        const bannerW = 14, bannerH = 28;
+        const bannerX = -bw / 2 + 6 + (seed % 3) * 10;
+        const bannerY = -bh + 14;
+        ctx.fillStyle = "#b1281c";
+        ctx.fillRect(bannerX, bannerY, bannerW, bannerH);
+        // Banner V-cut bottom
+        ctx.fillStyle = v.trim;
+        ctx.beginPath();
+        ctx.moveTo(bannerX, bannerY + bannerH);
+        ctx.lineTo(bannerX + bannerW / 2, bannerY + bannerH - 6);
+        ctx.lineTo(bannerX + bannerW, bannerY + bannerH);
+        ctx.closePath();
+        ctx.fill();
+        // Banner emblem
+        ctx.fillStyle = "#fde047";
+        ctx.fillRect(bannerX + bannerW / 2 - 2, bannerY + 10, 4, 4);
+
+        break;
+      }
+
       // Geometry Dash / Subway Surfer: bold flat colors, neon outlines, sharp shapes
       const palettes = {
         night:    [["#0f0f23","#7c3aed"],["#0f172a","#06b6d4"],["#1e1b4b","#f472b6"]],
@@ -424,7 +651,7 @@ function drawDecoration(
         metro:    [["#1f2937","#00f0ff"],["#111827","#a855f7"],["#0f172a","#22d3ee"]],
         boulevard:[["#1e293b","#facc15"],["#18181b","#4ade80"],["#27272a","#f472b6"]],
       };
-      const pal = palettes[theme] ?? palettes.boulevard;
+      const pal = palettes[theme as Exclude<LevelTheme, "kingdom">] ?? palettes.boulevard;
       const [bodyColor, accentColor] = pal[seed % pal.length];
 
       const bw = 56 + (seed % 3) * 12;
