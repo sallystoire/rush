@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { boostCodesTable, playerBoostsTable, codeRedemptionsTable, playersTable } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, count } from "drizzle-orm";
 import { CreateCodeBody, RedeemCodeBody } from "@workspace/api-zod";
 import { requireAdmin } from "../middlewares/admin";
 
@@ -21,6 +21,8 @@ router.post("/codes", requireAdmin, async (req, res) => {
   }
 
   const { code, boostType, value } = parsed.data;
+  const rawMax = (req.body as Record<string, unknown>).maxRedemptions;
+  const maxRedemptions = typeof rawMax === "number" && rawMax > 0 ? rawMax : null;
 
   const existing = await db.select().from(boostCodesTable).where(eq(boostCodesTable.code, code)).limit(1);
   if (existing.length > 0) {
@@ -32,6 +34,7 @@ router.post("/codes", requireAdmin, async (req, res) => {
     code,
     boostType,
     value: value || 1,
+    maxRedemptions: maxRedemptions ?? null,
   }).returning();
 
   res.json(created);
@@ -62,6 +65,17 @@ router.post("/codes/redeem", async (req, res) => {
   if (existingRedemption.length > 0) {
     res.json({ success: false, message: "Tu as déjà utilisé ce code" });
     return;
+  }
+
+  if (boostCode.maxRedemptions !== null && boostCode.maxRedemptions !== undefined) {
+    const [{ total }] = await db
+      .select({ total: count() })
+      .from(codeRedemptionsTable)
+      .where(eq(codeRedemptionsTable.codeId, boostCode.id));
+    if ((total ?? 0) >= boostCode.maxRedemptions) {
+      res.json({ success: false, message: "Ce code a atteint son nombre maximum d'utilisations" });
+      return;
+    }
   }
 
   await db.insert(codeRedemptionsTable).values({

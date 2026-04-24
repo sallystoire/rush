@@ -5,6 +5,15 @@ import { eq } from "drizzle-orm";
 export const ADMIN_DISCORD_ID =
   process.env["ADMIN_DISCORD_ID"] ?? "989611084073799731";
 
+// Optional: comma-separated list of player IDs that are admins regardless of Discord ID
+// e.g. ADMIN_PLAYER_IDS=1,2,3
+const ADMIN_PLAYER_IDS: Set<number> = new Set(
+  (process.env["ADMIN_PLAYER_IDS"] ?? "")
+    .split(",")
+    .map((s) => Number(s.trim()))
+    .filter((n) => !isNaN(n) && n > 0),
+);
+
 export interface AdminAuthedRequest extends Request {
   adminPlayerId?: number;
 }
@@ -32,7 +41,10 @@ export async function requireAdmin(
     return;
   }
 
-  if (!player.discordId || player.discordId !== ADMIN_DISCORD_ID) {
+  const isDiscordAdmin = !!player.discordId && player.discordId === ADMIN_DISCORD_ID;
+  const isPlayerIdAdmin = ADMIN_PLAYER_IDS.has(player.id);
+
+  if (!isDiscordAdmin && !isPlayerIdAdmin) {
     res.status(403).json({ error: "Accès admin refusé" });
     return;
   }

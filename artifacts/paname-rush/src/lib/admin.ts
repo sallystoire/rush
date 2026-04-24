@@ -3,8 +3,18 @@ import type { Player, Team, BoostCode } from "@workspace/api-client-react";
 
 export const ADMIN_DISCORD_ID = "989611084073799731";
 
-export function isAdminPlayer(player: { discordId?: string | null } | null | undefined): boolean {
-  return !!player?.discordId && player.discordId === ADMIN_DISCORD_ID;
+const ADMIN_PLAYER_IDS: Set<number> = new Set(
+  (import.meta.env.VITE_ADMIN_PLAYER_IDS ?? "")
+    .split(",")
+    .map((s: string) => Number(s.trim()))
+    .filter((n: number) => !isNaN(n) && n > 0),
+);
+
+export function isAdminPlayer(player: { id?: number; discordId?: string | null } | null | undefined): boolean {
+  if (!player) return false;
+  if (player.discordId && player.discordId === ADMIN_DISCORD_ID) return true;
+  if (player.id && ADMIN_PLAYER_IDS.has(player.id)) return true;
+  return false;
 }
 
 // ── Admin API helpers (raw — these endpoints are not in the OpenAPI spec) ──

@@ -584,6 +584,10 @@ components:
         value:
           type: integer
           default: 1
+        maxRedemptions:
+          type: integer
+          nullable: true
+          description: Maximum number of total redemptions allowed. Null means unlimited.
       required:
         - code
         - boostType
@@ -623,6 +627,9 @@ components:
           type: string
         value:
           type: integer
+        maxRedemptions:
+          type: integer
+          nullable: true
         createdAt:
           type: string
       required:

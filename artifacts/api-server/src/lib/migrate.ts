@@ -32,12 +32,15 @@ const SQL = `
   );
 
   CREATE TABLE IF NOT EXISTS boost_codes (
-    id         SERIAL PRIMARY KEY,
-    code       TEXT NOT NULL UNIQUE,
-    boost_type TEXT NOT NULL,
-    value      INTEGER NOT NULL DEFAULT 1,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    id               SERIAL PRIMARY KEY,
+    code             TEXT NOT NULL UNIQUE,
+    boost_type       TEXT NOT NULL,
+    value            INTEGER NOT NULL DEFAULT 1,
+    max_redemptions  INTEGER,
+    created_at       TIMESTAMP NOT NULL DEFAULT NOW()
   );
+
+  ALTER TABLE boost_codes ADD COLUMN IF NOT EXISTS max_redemptions INTEGER;
 
   CREATE TABLE IF NOT EXISTS player_boosts (
     id         SERIAL PRIMARY KEY,

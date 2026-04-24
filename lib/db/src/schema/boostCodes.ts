@@ -7,6 +7,7 @@ export const boostCodesTable = pgTable("boost_codes", {
   code: text("code").notNull().unique(),
   boostType: text("boost_type").notNull(),
   value: integer("value").notNull().default(1),
+  maxRedemptions: integer("max_redemptions"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

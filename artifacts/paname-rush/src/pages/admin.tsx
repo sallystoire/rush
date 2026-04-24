@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Trash2, Edit2, Ban, ShieldCheck, Plus, RefreshCw } from "lucide-react";
+import { ArrowLeft, Trash2, Edit2, Ban, ShieldCheck, Plus, RefreshCw, Infinity } from "lucide-react";
 import {
   isAdminPlayer,
   adminListTeams,
@@ -22,6 +22,7 @@ import type { Player, Team, BoostCode } from "@workspace/api-client-react";
 
 type Tab = "teams" | "players" | "codes";
 type TeamWithMembers = Team & { members: Player[] };
+type AdminBoostCode = BoostCode & { redemptionCount: number; maxRedemptions?: number | null };
 
 const BOOST_TYPES: { value: string; label: string; help: string }[] = [
   { value: "coins", label: "Coins", help: "Ajoute le nombre de coins indiqué (champ Valeur)." },
@@ -39,7 +40,7 @@ export default function Admin() {
   const [tab, setTab] = useState<Tab>("teams");
   const [teams, setTeams] = useState<TeamWithMembers[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
-  const [codes, setCodes] = useState<BoostCode[]>([]);
+  const [codes, setCodes] = useState<AdminBoostCode[]>([]);
   const [loading, setLoading] = useState(false);
   const [renamingTeamId, setRenamingTeamId] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -48,6 +49,7 @@ export default function Admin() {
   const [codeText, setCodeText] = useState("");
   const [boostType, setBoostType] = useState<string>("coins");
   const [boostValue, setBoostValue] = useState<number>(200);
+  const [maxRedemptions, setMaxRedemptions] = useState<number | "">(""); 
   const createCode = useCreateCode();
 
   const admin = isAdminPlayer(player);
@@ -119,12 +121,19 @@ export default function Admin() {
     e.preventDefault();
     const code = codeText.trim().toUpperCase();
     if (!code) return;
+    const bodyData = {
+      code,
+      boostType: boostType as never,
+      value: boostValue,
+      ...(maxRedemptions !== "" ? { maxRedemptions } : {}),
+    };
     createCode.mutate(
-      { data: { code, boostType: boostType as never, value: boostValue } },
+      { data: bodyData },
       {
         onSuccess: () => {
           toast({ title: "Code créé", description: code });
           setCodeText("");
+          setMaxRedemptions("");
           refresh("codes");
         },
         onError: (err) => {
@@ -264,7 +273,7 @@ export default function Admin() {
           <div className="space-y-4">
             <form onSubmit={handleCreateCode} className="border-2 border-red-500/50 bg-card p-4 space-y-3">
               <div className="pixel-text text-base text-red-300">CRÉER UN CODE BOOST</div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <div>
                   <Label className="text-xs font-mono">Code</Label>
                   <Input
@@ -296,6 +305,20 @@ export default function Admin() {
                     min={1}
                   />
                 </div>
+                <div>
+                  <Label className="text-xs font-mono">Max utilisations (vide = illimité)</Label>
+                  <Input
+                    type="number"
+                    value={maxRedemptions}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setMaxRedemptions(v === "" ? "" : Math.max(1, parseInt(v, 10) || 1));
+                    }}
+                    placeholder="∞"
+                    className="h-9 font-mono"
+                    min={1}
+                  />
+                </div>
               </div>
               <p className="text-xs text-muted-foreground font-mono">
                 {BOOST_TYPES.find(b => b.value === boostType)?.help}
@@ -309,10 +332,16 @@ export default function Admin() {
               {codes.length === 0 && <p className="text-muted-foreground font-mono">Aucun code.</p>}
               {codes.map((c) => (
                 <div key={c.id} className="border-2 border-border bg-card p-3 flex items-center justify-between gap-3">
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <div className="pixel-text text-sm font-mono">{c.code}</div>
-                    <div className="text-xs font-mono text-muted-foreground">
-                      {BOOST_TYPES.find(b => b.value === c.boostType)?.label ?? c.boostType} · valeur {c.value}
+                    <div className="text-xs font-mono text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                      <span>{BOOST_TYPES.find(b => b.value === c.boostType)?.label ?? c.boostType} · valeur {c.value}</span>
+                      <span className="flex items-center gap-1">
+                        {c.redemptionCount} utilisation{c.redemptionCount !== 1 ? "s" : ""}
+                        {c.maxRedemptions != null
+                          ? ` / ${c.maxRedemptions}`
+                          : <> / <Infinity className="inline h-3 w-3" /></>}
+                      </span>
                     </div>
                   </div>
                   <Button size="sm" variant="destructive" onClick={() => handleDeleteCode(c.id)}>

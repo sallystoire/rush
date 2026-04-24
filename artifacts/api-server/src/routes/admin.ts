@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, playersTable, teamsTable, boostCodesTable, codeRedemptionsTable, playerBoostsTable } from "@workspace/db";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, sql } from "drizzle-orm";
 import { requireAdmin, ADMIN_DISCORD_ID } from "../middlewares/admin";
 
 const router = Router();
@@ -87,10 +87,19 @@ router.post("/admin/players/:playerId/unban", requireAdmin, async (req, res) => 
   res.json(updated);
 });
 
-// ── List all boost codes ─────────────────────────────────────
+// ── List all boost codes (with redemption count) ─────────────
 router.get("/admin/codes", requireAdmin, async (_req, res) => {
   const codes = await db.select().from(boostCodesTable).orderBy(asc(boostCodesTable.code));
-  res.json(codes);
+  const codesWithCount = await Promise.all(
+    codes.map(async (c) => {
+      const [{ count }] = await db
+        .select({ count: sql<number>`cast(count(*) as int)` })
+        .from(codeRedemptionsTable)
+        .where(eq(codeRedemptionsTable.codeId, c.id));
+      return { ...c, redemptionCount: count ?? 0 };
+    }),
+  );
+  res.json(codesWithCount);
 });
 
 // ── Delete a boost code (also wipes redemptions/granted boosts) ──
