@@ -5,7 +5,7 @@ import { useDiscord } from "@/hooks/use-discord";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { notifyTeamDeath, getTeamState } from "@/lib/team-api";
+import { notifyTeamDeath, getTeamState, notifyTeamAdvance, getTeamAdvance } from "@/lib/team-api";
 import { 
   generateLevel, getTotalParcours, getLevelName, isLaserActive,
   checkCollision, GRAVITY, JUMP_FORCE, MOVE_SPEED, MAX_FALL_SPEED,
@@ -562,6 +562,10 @@ export default function Game() {
   // Team death sync — timestamp of when we started playing this session
   const teamDeathSinceRef = useRef<number>(Date.now());
   const teamDeathPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Team advance sync — timestamp of when we started playing this session
+  const teamAdvanceSinceRef = useRef<number>(Date.now());
+  const teamAdvancePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   const keysRef = useRef<{ [key: string]: boolean }>({});
   const jumpKeyHeldRef = useRef<boolean>(false);
@@ -625,6 +629,39 @@ export default function Game() {
 
     return () => {
       if (teamDeathPollRef.current) clearInterval(teamDeathPollRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTeamMode, urlTeamId]);
+
+  // Team advance sync — poll for teammate level/parcours advances in team mode
+  useEffect(() => {
+    if (!isTeamMode || !urlTeamId) return;
+    teamAdvanceSinceRef.current = Date.now();
+
+    teamAdvancePollRef.current = setInterval(async () => {
+      const state = gameStateRef.current;
+      if (!state || state.status === "dead") return;
+      try {
+        const result = await getTeamAdvance(urlTeamId, teamAdvanceSinceRef.current);
+        if (result.advanced && result.playerId !== player?.id && result.level && result.parcours) {
+          teamAdvanceSinceRef.current = result.timestamp ?? Date.now();
+          const currentLevel = state.level;
+          const currentParcours = state.parcours;
+          // Only jump forward, never backward
+          const shouldJump =
+            result.level > currentLevel ||
+            (result.level === currentLevel && result.parcours > currentParcours);
+          if (shouldJump) {
+            initLevel(result.level, result.parcours);
+          }
+        }
+      } catch {
+        // ignore poll errors
+      }
+    }, 2000);
+
+    return () => {
+      if (teamAdvancePollRef.current) clearInterval(teamAdvancePollRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isTeamMode, urlTeamId]);
@@ -882,15 +919,20 @@ export default function Game() {
     const state = gameStateRef.current;
     
     if (state.parcours < state.totalParcours) {
-      // Pause game, show "PARCOURS RÉUSSI!" — player must click to continue
       state.status = "won_parcours";
       setUiState(s => ({ ...s, status: "won_parcours" }));
-      // No auto-transition — player clicks goToNextParcours
+
+      if (isTeamMode && urlTeamId) {
+        // In team mode: auto-advance and notify teammates of the new parcours
+        notifyTeamAdvance(urlTeamId, player.id, state.level, state.parcours + 1).catch(() => {});
+        setTimeout(() => initLevel(state.level, state.parcours + 1), 800);
+      }
+      // In solo mode: player clicks goToNextParcours
     } else {
       state.status = "won_level";
       setUiState(s => ({ ...s, status: "won_level" }));
 
-      // Save progress (no auto-advance — wait for player to click a button)
+      // Save progress
       completeLevel.mutate(
         { sessionId, data: { level: state.level, time: state.time } },
         {
@@ -906,8 +948,15 @@ export default function Game() {
           }
         }
       );
+
+      if (isTeamMode && urlTeamId) {
+        // In team mode: auto-advance to next level and notify teammates
+        notifyTeamAdvance(urlTeamId, player.id, state.level + 1, 1).catch(() => {});
+        setTimeout(() => initLevel(state.level + 1, 1), 1200);
+      }
+      // In solo mode: player clicks goToNextLevel
     }
-  }, [player, sessionId, initLevel]);
+  }, [player, sessionId, initLevel, isTeamMode, urlTeamId]);
 
   const goToNextParcours = useCallback(() => {
     if (!gameStateRef.current) return;
@@ -1146,13 +1195,17 @@ export default function Game() {
             <div className="graffiti-text text-white mt-3 text-lg md:text-xl">
               {uiState.parcours}/{uiState.totalParcours} — Continue vers le parcours {uiState.parcours + 1}
             </div>
-            <Button
-              onClick={goToNextParcours}
-              size="lg"
-              className="graffiti-text text-xl tracking-widest mt-6 bg-secondary hover:bg-secondary/90 text-black border-2 border-border shadow-[0_0_15px_rgba(0,240,255,0.5)]"
-            >
-              CONTINUER
-            </Button>
+            {isTeamMode ? (
+              <div className="graffiti-text text-secondary mt-6 text-xl animate-pulse">En attente des coéquipiers...</div>
+            ) : (
+              <Button
+                onClick={goToNextParcours}
+                size="lg"
+                className="graffiti-text text-xl tracking-widest mt-6 bg-secondary hover:bg-secondary/90 text-black border-2 border-border shadow-[0_0_15px_rgba(0,240,255,0.5)]"
+              >
+                CONTINUER
+              </Button>
+            )}
           </div>
         )}
 
@@ -1167,23 +1220,27 @@ export default function Game() {
             <div className="graffiti-text text-secondary mt-4 text-xl md:text-3xl drop-shadow-[0_0_8px_rgba(0,240,255,0.6)] tracking-wider">
               PROCHAIN NIVEAU : {uiState.level + 1}
             </div>
-            <div className="flex flex-col sm:flex-row gap-3 mt-6">
-              <Button
-                onClick={goToNextLevel}
-                size="lg"
-                className="graffiti-text text-xl tracking-widest bg-primary hover:bg-primary/90 text-white border-2 border-border shadow-[0_0_15px_rgba(255,0,85,0.5)]"
-              >
-                JOUER
-              </Button>
-              <Button
-                onClick={() => setLocation("/")}
-                variant="secondary"
-                size="lg"
-                className="graffiti-text text-xl tracking-widest border-2 border-border"
-              >
-                RETOUR À L'ACCUEIL
-              </Button>
-            </div>
+            {isTeamMode ? (
+              <div className="graffiti-text text-accent mt-6 text-xl animate-pulse">Prochain niveau en cours...</div>
+            ) : (
+              <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                <Button
+                  onClick={goToNextLevel}
+                  size="lg"
+                  className="graffiti-text text-xl tracking-widest bg-primary hover:bg-primary/90 text-white border-2 border-border shadow-[0_0_15px_rgba(255,0,85,0.5)]"
+                >
+                  JOUER
+                </Button>
+                <Button
+                  onClick={() => setLocation("/")}
+                  variant="secondary"
+                  size="lg"
+                  className="graffiti-text text-xl tracking-widest border-2 border-border"
+                >
+                  RETOUR À L'ACCUEIL
+                </Button>
+              </div>
+            )}
           </div>
         )}
 

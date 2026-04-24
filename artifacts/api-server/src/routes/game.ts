@@ -10,6 +10,10 @@ const router = Router();
 // teamId → { playerId, timestamp }
 const teamDeaths = new Map<number, { playerId: number; timestamp: number }>();
 
+// ── In-memory team advance events ─────────────────────────────
+// teamId → { playerId, level, parcours, timestamp }
+const teamAdvances = new Map<number, { playerId: number; level: number; parcours: number; timestamp: number }>();
+
 router.post("/game/start", async (req, res) => {
   const parsed = StartGameBody.safeParse(req.body);
   if (!parsed.success) {
@@ -19,9 +23,17 @@ router.post("/game/start", async (req, res) => {
 
   const { playerId, mode, teamId } = parsed.data;
 
-  // Resume at the player's current level (so progress persists across sessions)
-  const [player] = await db.select().from(playersTable).where(eq(playersTable.id, playerId)).limit(1);
-  const startLevel = (player?.level ?? 1);
+  // Team mode always starts at level 1 so all players are on the same map
+  let startLevel = 1;
+  if (mode !== "team") {
+    const [player] = await db.select().from(playersTable).where(eq(playersTable.id, playerId)).limit(1);
+    startLevel = player?.level ?? 1;
+  }
+
+  // Reset any previous advance state so everyone starts fresh from level 1 parcours 1
+  if (mode === "team" && teamId) {
+    teamAdvances.delete(teamId);
+  }
 
   const [session] = await db.insert(gameSessionsTable).values({
     playerId,
@@ -95,6 +107,34 @@ router.post("/game/:sessionId/complete", async (req, res) => {
   }
 
   res.json(updated);
+});
+
+// ── Team advance notification ─────────────────────────────────
+// POST /game/team-advance  { teamId, playerId, level, parcours }
+router.post("/game/team-advance", (req, res) => {
+  const { teamId, playerId, level, parcours } = req.body as { teamId: number; playerId: number; level: number; parcours: number };
+  if (!teamId || !playerId || !level || !parcours) {
+    res.status(400).json({ error: "teamId, playerId, level and parcours required" });
+    return;
+  }
+  const existing = teamAdvances.get(teamId);
+  // Only record if this is an equal or more advanced position (newest timestamp wins ties)
+  if (!existing || level > existing.level || (level === existing.level && parcours >= existing.parcours)) {
+    teamAdvances.set(teamId, { playerId, level, parcours, timestamp: Date.now() });
+  }
+  res.json({ ok: true });
+});
+
+// GET /game/team-advance/:teamId?since=<timestamp>
+router.get("/game/team-advance/:teamId", (req, res) => {
+  const teamId = Number(req.params.teamId);
+  const since = Number(req.query.since ?? 0);
+  const advance = teamAdvances.get(teamId);
+  if (advance && advance.timestamp > since) {
+    res.json({ advanced: true, level: advance.level, parcours: advance.parcours, playerId: advance.playerId, timestamp: advance.timestamp });
+  } else {
+    res.json({ advanced: false });
+  }
 });
 
 // ── Team death notification ───────────────────────────────────

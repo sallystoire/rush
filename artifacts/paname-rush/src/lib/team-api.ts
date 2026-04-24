@@ -81,3 +81,22 @@ export const notifyTeamDeath = (teamId: number, playerId: number) =>
 
 export const getTeamState = (teamId: number, since: number) =>
   req<TeamDeathState>(`/game/team-state/${teamId}?since=${since}`);
+
+// ── Multiplayer advance sync ───────────────────────────────────
+
+export interface TeamAdvanceState {
+  advanced: boolean;
+  level?: number;
+  parcours?: number;
+  playerId?: number;
+  timestamp?: number;
+}
+
+export const notifyTeamAdvance = (teamId: number, playerId: number, level: number, parcours: number) =>
+  req<{ ok: boolean }>("/game/team-advance", {
+    method: "POST",
+    body: JSON.stringify({ teamId, playerId, level, parcours }),
+  });
+
+export const getTeamAdvance = (teamId: number, since: number) =>
+  req<TeamAdvanceState>(`/game/team-advance/${teamId}?since=${since}`);
