@@ -558,6 +558,9 @@ export default function Game() {
   
   const gameStateRef = useRef<GameState | null>(null);
   const sessionStartedRef = useRef(false);
+  const lastFrameTimeRef = useRef<number>(0);
+  const frameAccumulatorRef = useRef<number>(0);
+  const FIXED_STEP_MS = 1000 / 60; // physics always at 60Hz regardless of display
 
   // Team death sync — timestamp of when we started playing this session
   const teamDeathSinceRef = useRef<number>(Date.now());
@@ -1084,8 +1087,20 @@ export default function Game() {
     ctx.restore();
   }, []);
 
-  const loop = useCallback(() => {
-    update();
+  const loop = useCallback((timestamp: number) => {
+    // Cap delta to 100ms so a browser tab pause doesn't cause a huge jump
+    const delta = lastFrameTimeRef.current
+      ? Math.min(timestamp - lastFrameTimeRef.current, 100)
+      : 0;
+    lastFrameTimeRef.current = timestamp;
+    frameAccumulatorRef.current += delta;
+
+    // Run physics at a fixed 60Hz step regardless of display refresh rate
+    while (frameAccumulatorRef.current >= FIXED_STEP_MS) {
+      update();
+      frameAccumulatorRef.current -= FIXED_STEP_MS;
+    }
+
     draw();
     requestRef.current = requestAnimationFrame(loop);
   }, [update, draw]);
@@ -1096,7 +1111,9 @@ export default function Game() {
     
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
-    
+
+    lastFrameTimeRef.current = 0;
+    frameAccumulatorRef.current = 0;
     requestRef.current = requestAnimationFrame(loop);
     
     return () => {
